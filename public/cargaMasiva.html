@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Talleres</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="container mt-5">
+  <h1 class="text-center mb-5">Gestión de Talleres de Recuperación</h1>
+  
+  <!-- Sección de Carga Masiva -->
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <h2 class="text-center mb-4">Carga Masiva</h2>
+
+      <!-- Formulario para cargar estudiantes -->
+      <form id="form-carga-estudiantes" enctype="multipart/form-data" class="bg-light p-4 border rounded mb-4">
+        <div class="form-group">
+          <label for="archivo-estudiantes">Cargar Estudiantes:</label>
+          <input type="file" id="archivo-estudiantes" name="file" accept=".xlsx" class="form-control-file" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Cargar</button>
+      </form>
+      
+      <!-- Formulario para cargar materias reprobadas -->
+      <form id="form-carga-materias" enctype="multipart/form-data" class="bg-light p-4 border rounded">
+        <div class="form-group">
+          <label for="archivo-materias">Cargar Materias Reprobadas:</label>
+          <input type="file" id="archivo-materias" name="file" accept=".xlsx" class="form-control-file" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Cargar</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/cargaMasiva.js"></script>
+</body>
+</html>

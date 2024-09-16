@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Estudiantes con Talleres No Entregados</title>
+  <!-- Link a Bootstrap -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body class="container mt-5">
+  <h1 class="text-center mb-5">Estudiantes con Talleres No Entregados</h1>
+
+  <!-- Tabla de estudiantes con talleres no entregados -->
+  <div class="table-responsive">
+    <table id="tabla-no-entregados" class="table table-striped table-bordered">
+      <thead class="thead-dark">
+        <tr>
+          <th>N°</th>
+          <th>Nombre</th>
+          <th>Grado</th>
+          <th>Materias No Entregadas</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Filas generadas dinámicamente -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Scripts de Bootstrap y jQuery -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/reportes.js"></script>
+</body>
+</html>
