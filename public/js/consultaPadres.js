@@ -8,51 +8,48 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
       .then(response => response.json())
       .then(data => {
         const resultadosDiv = document.getElementById('resultados');
-        resultadosDiv.innerHTML = '';
-  
+        const tablaBody = resultadosDiv.querySelector('tbody');
+        const tablaHead = resultadosDiv.querySelector('thead');
+        
+        // Limpiar el contenido actual de la tabla
+        tablaBody.innerHTML = '';
+
         if (data.length === 0) {
           resultadosDiv.innerText = 'No se encontraron registros para este estudiante.';
           return;
         }
         
-        let h1 = document.createElement('h2');
-        h1.innerText = data[0].nombre +' - ' + data[0].grado
-        const tabla = document.createElement('table');
-        const thead = document.createElement('thead');
-        const tbody = document.createElement('tbody');
-        
-        thead.innerHTML = `
+        // Actualizar o crear el encabezado del estudiante
+        let h1Estudiante = document.getElementById('nombre-estudiante-grado');
+        if (!h1Estudiante) {
+          h1Estudiante = document.createElement('h2');
+          h1Estudiante.id = 'nombre-estudiante-grado';
+          resultadosDiv.insertBefore(h1Estudiante, resultadosDiv.firstChild);
+        }
+        h1Estudiante.innerText = data[0].nombre +' - ' + data[0].grado;
 
-            <th>Materia</th>
-            <th>Entregado por el Estudiante</th>
-            <th>Entregado al Docente</th>
-            <th>Observaciones</th>
-          </tr>
-        `;
-  
+        // Asegurarse de que el thead esté visible y correcto
+        tablaHead.style.display = ''; // Mostrar el thead si estaba oculto
+
         data.forEach(taller => {
           const fila = document.createElement('tr');
   
           fila.innerHTML = `
-
-            
             <td>${taller.nombre_materia}</td>
+            <td>${taller.periodo}</td>
             <td>${taller.taller_entregado_estudiante ? 'Sí' : 'No'}</td>
+            <td>${taller.fecha_entrega_estudiante ? new Date(taller.fecha_entrega_estudiante).toLocaleDateString() : ''}</td>
             <td>${taller.taller_entregado_docente ? 'Sí' : 'No'}</td>
+            <td>${taller.fecha_entrega_docente ? new Date(taller.fecha_entrega_docente).toLocaleDateString() : ''}</td>
             <td>${taller.observaciones || ''}</td>
           `;
   
-          tbody.appendChild(fila);
+          tablaBody.appendChild(fila);
           
         });
   
-        tabla.appendChild(thead);
-        tabla.appendChild(tbody);
-        resultadosDiv.appendChild(h1);
-        resultadosDiv.appendChild(tabla);
-
         // Seleccionar la primera tabla que se encuentre en el documento
-let table = document.querySelector('table');
+let table = resultadosDiv.querySelector('table');
 
 // Recorrer todas las filas de la tabla
 for (let i = 0; i < table.rows.length; i++) {
@@ -75,4 +72,3 @@ for (let i = 0; i < table.rows.length; i++) {
       })
       .catch(err => console.error(err));
   });
-

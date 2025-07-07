@@ -1,11 +1,5 @@
-// public/js/main.js
-
-// Variables globales para el modal
-let modal;
-let closeButton;
-let guardarButton;
-let idEstudianteActual;
 let idMateriaActual;
+let periodoActual;
 
 // Esperar a que el DOM cargue
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,13 +21,16 @@ function inicializarModal() {
 
   guardarButton.addEventListener('click', () => {
     const observacion = document.getElementById('textoObservaciones').value;
-    actualizarObservaciones(idEstudianteActual, idMateriaActual, observacion);
+    actualizarObservaciones(idEstudianteActual, idMateriaActual, periodoActual, observacion);
     cerrarModal();
   });
 }
 
-function abrirModal(observacionActual) {
+function abrirModal(observacionActual, idEstudiante, idMateria, periodo) {
   document.getElementById('textoObservaciones').value = observacionActual || '';
+  idEstudianteActual = idEstudiante;
+  idMateriaActual = idMateria;
+  periodoActual = periodo;
   modal.style.display = 'block';
 }
 
@@ -78,6 +75,7 @@ function cargarTalleres() {
         fila.insertCell().innerText = nombreFormateado;
         fila.insertCell().innerText = taller.grado;
         fila.insertCell().innerText = taller.nombre_materia;
+        fila.insertCell().innerText = taller.periodo;
 
         // Entregado por Estudiante
         const celdaEntregaEstudiante = fila.insertCell();
@@ -85,7 +83,7 @@ function cargarTalleres() {
         checkboxEstudiante.type = 'checkbox';
         checkboxEstudiante.checked = !!taller.taller_entregado_estudiante;
         checkboxEstudiante.addEventListener('change', () => {
-          registrarEntregaEstudiante(taller.id_estudiante, taller.id_materia, checkboxEstudiante.checked);
+          registrarEntregaEstudiante(taller.id_estudiante, taller.id_materia, taller.periodo, checkboxEstudiante.checked);
         });
         celdaEntregaEstudiante.appendChild(checkboxEstudiante);
 
@@ -98,7 +96,7 @@ function cargarTalleres() {
         checkboxDocente.type = 'checkbox';
         checkboxDocente.checked = !!taller.taller_entregado_docente;
         checkboxDocente.addEventListener('change', () => {
-          registrarEntregaDocente(taller.id_estudiante, taller.id_materia, checkboxDocente.checked);
+          registrarEntregaDocente(taller.id_estudiante, taller.id_materia, taller.periodo, checkboxDocente.checked);
         });
         celdaEntregaDocente.appendChild(checkboxDocente);
 
@@ -110,9 +108,7 @@ function cargarTalleres() {
         const botonObservaciones = document.createElement('button');
         botonObservaciones.innerText = 'Editar';
         botonObservaciones.addEventListener('click', () => {
-          idEstudianteActual = taller.id_estudiante;
-          idMateriaActual = taller.id_materia;
-          abrirModal(taller.observaciones);
+          abrirModal(taller.observaciones, taller.id_estudiante, taller.id_materia, taller.periodo);
         });
         celdaObservaciones.appendChild(botonObservaciones);
 
@@ -125,13 +121,13 @@ function cargarTalleres() {
 }
 
 
-function actualizarObservaciones(id_estudiante, id_materia, observaciones) {
+function actualizarObservaciones(id_estudiante, id_materia, periodo, observaciones) {
   fetch('/api/talleres/actualizar-observaciones', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ id_estudiante, id_materia, observaciones })
+    body: JSON.stringify({ id_estudiante, id_materia, periodo, observaciones })
   })
     .then(response => response.text())
     .then(msg => {
@@ -141,14 +137,14 @@ function actualizarObservaciones(id_estudiante, id_materia, observaciones) {
     .catch(err => console.error(err));
 }
 
-function registrarEntregaEstudiante(id_estudiante, id_materia, entregado) {
+function registrarEntregaEstudiante(id_estudiante, id_materia, periodo, entregado) {
   console.log('Entregado:', entregado);
   fetch('/api/talleres/entrega-estudiante', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ id_estudiante, id_materia, entregado })
+    body: JSON.stringify({ id_estudiante, id_materia, periodo, entregado })
   })
     .then(response => response.text())
     .then(msg => {
@@ -158,13 +154,13 @@ function registrarEntregaEstudiante(id_estudiante, id_materia, entregado) {
     .catch(err => console.error(err));
 }
 
-function registrarEntregaDocente(id_estudiante, id_materia, entregado) {
+function registrarEntregaDocente(id_estudiante, id_materia, periodo, entregado) {
   fetch('/api/talleres/entrega-docente', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ id_estudiante, id_materia, entregado })
+    body: JSON.stringify({ id_estudiante, id_materia, periodo, entregado })
   })
     .then(response => response.text())
     .then(msg => {
@@ -173,3 +169,4 @@ function registrarEntregaDocente(id_estudiante, id_materia, entregado) {
     })
     .catch(err => console.error(err));
 }
+

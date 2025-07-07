@@ -5,7 +5,6 @@ const cargaController = require('../controllers/cargaController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
-router.post('/estudiantes', upload.single('file'), cargaController.cargaMasivaEstudiantes);
-router.post('/materias-reprobadas', upload.single('file'), cargaController.cargaMasivaMateriasReprobadas);
+router.post('/carga-unificada', upload.single('file'), cargaController.cargaMasivaUnificada);
 
 module.exports = router;

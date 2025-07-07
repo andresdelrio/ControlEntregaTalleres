@@ -12,22 +12,13 @@
   <!-- Sección de Carga Masiva -->
   <div class="row justify-content-center">
     <div class="col-md-6">
-      <h2 class="text-center mb-4">Carga Masiva</h2>
+      <h2 class="text-center mb-4">Carga Masiva Unificada</h2>
 
-      <!-- Formulario para cargar estudiantes -->
-      <form id="form-carga-estudiantes" enctype="multipart/form-data" class="bg-light p-4 border rounded mb-4">
+      <!-- Formulario para carga unificada -->
+      <form id="form-carga-unificada" enctype="multipart/form-data" class="bg-light p-4 border rounded mb-4">
         <div class="form-group">
-          <label for="archivo-estudiantes">Cargar Estudiantes:</label>
-          <input type="file" id="archivo-estudiantes" name="file" accept=".xlsx" class="form-control-file" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Cargar</button>
-      </form>
-      
-      <!-- Formulario para cargar materias reprobadas -->
-      <form id="form-carga-materias" enctype="multipart/form-data" class="bg-light p-4 border rounded">
-        <div class="form-group">
-          <label for="archivo-materias">Cargar Materias Reprobadas:</label>
-          <input type="file" id="archivo-materias" name="file" accept=".xlsx" class="form-control-file" required>
+          <label for="archivo-unificado">Cargar Archivo de Datos (Estudiantes, Materias, etc.):</label>
+          <input type="file" id="archivo-unificado" name="file" accept=".xlsx,.csv" class="form-control-file" required>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Cargar</button>
       </form>
@@ -39,3 +30,4 @@
   <script src="js/cargaMasiva.js"></script>
 </body>
 </html>
+

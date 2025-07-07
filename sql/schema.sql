@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS materias_reprobadas (
   id INT AUTO_INCREMENT PRIMARY KEY,
   id_estudiante INT NOT NULL,
   id_materia INT NOT NULL,
+  periodo INT,
   FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante),
   FOREIGN KEY (id_materia) REFERENCES materias(id_materia)
 );
@@ -32,6 +33,7 @@ CREATE TABLE talleres (
   id_taller INT AUTO_INCREMENT PRIMARY KEY,
   id_estudiante INT NOT NULL,
   id_materia INT NOT NULL,
+  periodo INT NOT NULL,
   taller_entregado_estudiante BOOLEAN DEFAULT FALSE,
   fecha_entrega_estudiante DATE,
   taller_entregado_docente BOOLEAN DEFAULT FALSE,
@@ -39,6 +41,6 @@ CREATE TABLE talleres (
   observaciones TEXT,
   FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante),
   FOREIGN KEY (id_materia) REFERENCES materias(id_materia),
-  UNIQUE KEY unique_estudiante_materia (id_estudiante, id_materia)
+  UNIQUE KEY unique_estudiante_materia_periodo (id_estudiante, id_materia, periodo)
 );
 
