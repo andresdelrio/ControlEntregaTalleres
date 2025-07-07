@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Consulta de Talleres</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
@@ -14,23 +17,25 @@
       <form id="form-consulta" class="bg-light p-4 border rounded">
         <div class="form-group">
           <label for="numero_identificacion">Número de Identificación del Estudiante:</label>
-          <input type="text" id="numero_identificacion" name="numero_identificacion" class="form-control" required>
+          <input type="number" inputmode="numeric" id="numero_identificacion" name="numero_identificacion" class="form-control" required>
+          <div class="invalid-feedback"></div>
+          <div class="valid-feedback"></div>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Consultar</button>
+        <button type="submit" id="form-consulta-btn" class="btn btn-primary btn-block">Consultar</button>
       </form>
     </div>
   </div>
 
-  <div id="resultados" class="mt-4">
+  <div id="resultados" class="mt-4 table-responsive">
     <table class="table table-striped table-bordered">
       <thead>
         <tr>
           <th>Materia</th>
           <th>Periodo</th>
-          <th>Entregado por Estudiante</th>
-          <th>Fecha Estudiante</th>
+          <th>Entregado a Coordinación</th>
+          <th>Fecha</th>
           <th>Entregado al Docente</th>
-          <th>Fecha Docente</th>
+          <th>Fecha</th>
           <th>Observaciones</th>
         </tr>
       </thead>
@@ -43,5 +48,18 @@
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/consultaPadres.js"></script>
+
+<!-- Contenedor para los toasts -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto" id="toastHeader"></strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastBody">
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -45,6 +45,45 @@ function cerrarModal() {
   modal.style.display = 'none';
 }
 
+function showToast(header, message, isError = false) {
+  const toastLiveExample = document.getElementById('liveToast');
+  const toastHeader = document.getElementById('toastHeader');
+  const toastBody = document.getElementById('toastBody');
+
+  toastHeader.textContent = header;
+  toastBody.textContent = message;
+
+  if (isError) {
+    toastHeader.classList.add('text-danger');
+    toastHeader.classList.remove('text-success');
+  } else {
+    toastHeader.classList.add('text-success');
+    toastHeader.classList.remove('text-danger');
+  }
+
+  const toast = new bootstrap.Toast(toastLiveExample);
+  toast.show();
+}
+
+function showSpinner(buttonId, show) {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+
+  if (show) {
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando...';
+    button.disabled = true;
+  } else {
+    // Restaurar el texto original del botón (esto puede requerir almacenar el texto original)
+    // Por simplicidad, aquí solo se quita el spinner y se habilita.
+    if (buttonId === 'guardarObservaciones') {
+      button.innerHTML = 'Guardar';
+    } else if (buttonId === 'form-carga-unificada-btn') { // Asumiendo un ID para el botón de carga masiva
+      button.innerHTML = 'Cargar';
+    }
+    button.disabled = false;
+  }
+}
+
 function cargarTalleres() {
   fetch('/api/talleres')
     .then(response => response.json())
@@ -53,7 +92,10 @@ function cargarTalleres() {
       populateFilters(); // Llenar los selectores de filtro
       applyFiltersAndRenderTable(); // Aplicar filtros y renderizar la tabla inicial
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      showToast('Error', 'Error al cargar los talleres.', true);
+    });
 }
 
 function populateFilters() {
@@ -225,6 +267,7 @@ function renderTable(dataToRender) {
 }
 
 function actualizarObservaciones(id_estudiante, id_materia, periodo, observaciones) {
+  showSpinner('guardarObservaciones', true);
   fetch('/api/talleres/actualizar-observaciones', {
     method: 'POST',
     headers: {
@@ -234,15 +277,20 @@ function actualizarObservaciones(id_estudiante, id_materia, periodo, observacion
   })
     .then(response => response.text())
     .then(msg => {
-      alert(msg);
-      // Después de actualizar, recargar todos los datos y aplicar filtros
+      showToast('Éxito', msg);
       cargarTalleres(); 
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      showToast('Error', 'Error al actualizar observaciones.', true);
+    })
+    .finally(() => {
+      showSpinner('guardarObservaciones', false);
+    });
 }
 
 function registrarEntregaEstudiante(id_estudiante, id_materia, periodo, entregado) {
-  console.log('Entregado:', entregado);
+  // No hay un botón específico para spinner aquí, se podría añadir un spinner en la celda del checkbox
   fetch('/api/talleres/entrega-estudiante', {
     method: 'POST',
     headers: {
@@ -252,14 +300,17 @@ function registrarEntregaEstudiante(id_estudiante, id_materia, periodo, entregad
   })
     .then(response => response.text())
     .then(msg => {
-      console.log(msg);
-      // Después de actualizar, recargar todos los datos y aplicar filtros
+      showToast('Éxito', msg);
       cargarTalleres();
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      showToast('Error', 'Error al registrar entrega de estudiante.', true);
+    });
 }
 
 function registrarEntregaDocente(id_estudiante, id_materia, periodo, entregado) {
+  // No hay un botón específico para spinner aquí
   fetch('/api/talleres/entrega-docente', {
     method: 'POST',
     headers: {
@@ -269,9 +320,11 @@ function registrarEntregaDocente(id_estudiante, id_materia, periodo, entregado) 
   })
     .then(response => response.text())
     .then(msg => {
-      console.log(msg);
-      // Después de actualizar, recargar todos los datos y aplicar filtros
+      showToast('Éxito', msg);
       cargarTalleres();
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      showToast('Error', 'Error al registrar entrega a docente.', true);
+    });
 }
