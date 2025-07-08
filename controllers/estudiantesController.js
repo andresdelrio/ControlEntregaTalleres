@@ -1,5 +1,5 @@
 // controllers/estudiantesController.js
-const db = require('../config/db');
+const db = require('../config/db').promisePool;
 
 exports.obtenerEstudiantes = async (req, res) => {
   const query = `

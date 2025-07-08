@@ -1,5 +1,5 @@
 // controllers/padresController.js
-const db = require('../config/db');
+const db = require('../config/db').promisePool;
 
 exports.consultarTalleres = async (req, res) => {
   const { numero_identificacion } = req.query;

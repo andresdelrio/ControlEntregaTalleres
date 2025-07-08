@@ -11,12 +11,10 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// La librería mysql2/promise no es estrictamente necesaria aquí,
-// pero el pool ya gestiona las conexiones de forma asíncrona.
-// El pool emite un evento 'connection' que puedes usar para logging si es necesario,
-// pero no necesitas un .connect() explícito. Las conexiones se obtienen
-// y liberan automáticamente cuando usas pool.query() o pool.execute().
-
 console.log('Pool de conexiones a MySQL creado exitosamente.');
 
-module.exports = pool.promise();
+// Exportamos tanto el pool con promesas (para async/await) como el pool original (para librerías como express-mysql-session)
+module.exports = {
+  promisePool: pool.promise(),
+  pool: pool
+};

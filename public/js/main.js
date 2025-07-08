@@ -251,18 +251,21 @@ function renderTable(dataToRender) {
     // Fecha Entrega Docente
     fila.insertCell().innerText = taller.fecha_entrega_docente ? new Date(taller.fecha_entrega_docente).toLocaleDateString() : '';
 
-    // Observaciones
+    // Celda de Observaciones combinada
     const celdaObservaciones = fila.insertCell();
+    celdaObservaciones.className = 'observaciones-cell'; // Añadir una clase para estilizar
+
+    const textoObservacion = document.createElement('span');
+    textoObservacion.innerText = taller.observaciones || 'Sin observaciones';
+    celdaObservaciones.appendChild(textoObservacion);
+
     const botonObservaciones = document.createElement('button');
     botonObservaciones.innerText = 'Editar';
+    botonObservaciones.className = 'btn btn-sm btn-secondary ms-2'; // Clases de Bootstrap
     botonObservaciones.addEventListener('click', () => {
       abrirModal(taller.observaciones, taller.id_estudiante, taller.id_materia, taller.periodo);
     });
     celdaObservaciones.appendChild(botonObservaciones);
-
-    // Mostrar la observación actual
-    const celdaTextoObservaciones = fila.insertCell();
-    celdaTextoObservaciones.innerText = taller.observaciones || '';
   });
 }
 

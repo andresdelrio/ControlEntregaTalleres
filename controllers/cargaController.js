@@ -1,5 +1,5 @@
 // controllers/cargaController.js
-const db = require('../config/db');
+const db = require('../config/db').promisePool;
 const xlsx = require('xlsx');
 const fs = require('fs');
 const csv = require('csv-parser');

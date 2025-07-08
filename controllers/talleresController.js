@@ -1,5 +1,5 @@
 // controllers/talleresController.js
-const db = require('../config/db');
+const db = require('../config/db').promisePool;
 const moment = require('moment');
 
 exports.registrarEntregaEstudiante = async (req, res) => {

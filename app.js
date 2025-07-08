@@ -4,6 +4,8 @@ const app = express();
 const cors = require('cors');
 const path = require('path');
 
+const { promisePool } = require('./config/db'); // Importa el pool de promesas
+
 // Configuración de middlewares
 app.use(cors());
 app.use(express.json());
