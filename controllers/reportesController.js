@@ -1,8 +1,7 @@
 // controllers/reportesController.js
-// controllers/talleresController.js
-const connection = require('../config/db');
+const db = require('../config/db');
 
-exports.obtenerEstudiantesNoEntregados = (req, res) => {
+exports.obtenerEstudiantesNoEntregados = async (req, res) => {
     const query = `
       SELECT 
         e.id_estudiante,
@@ -18,12 +17,11 @@ exports.obtenerEstudiantesNoEntregados = (req, res) => {
       ORDER BY e.nombre;
     `;
   
-    connection.query(query, (err, results) => {
-      if (err) {
+    try {
+        const [results] = await db.query(query);
+        res.json(results);
+    } catch (err) {
         console.error(err);
         return res.status(500).send('Error al obtener la lista de estudiantes que no han entregado talleres.');
-      }
-      res.json(results);
-    });
+    }
   };
-  

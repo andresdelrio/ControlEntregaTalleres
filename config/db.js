@@ -1,19 +1,22 @@
 // config/db.js
 const mysql = require('mysql2');
 
-const connection = mysql.createConnection({
+const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: 'toor',
-  database: 'sistema_talleres'
+  database: 'sistema_talleres',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-connection.connect((err) => {
-  if (err) {
-    console.error('Error al conectar a la base de datos:', err);
-    return;
-  }
-  console.log('Conexión exitosa a la base de datos MySQL.');
-});
+// La librería mysql2/promise no es estrictamente necesaria aquí,
+// pero el pool ya gestiona las conexiones de forma asíncrona.
+// El pool emite un evento 'connection' que puedes usar para logging si es necesario,
+// pero no necesitas un .connect() explícito. Las conexiones se obtienen
+// y liberan automáticamente cuando usas pool.query() o pool.execute().
 
-module.exports = connection;
+console.log('Pool de conexiones a MySQL creado exitosamente.');
+
+module.exports = pool.promise();

@@ -1,7 +1,7 @@
 // controllers/estudiantesController.js
-const connection = require('../config/db');
+const db = require('../config/db');
 
-exports.obtenerEstudiantes = (req, res) => {
+exports.obtenerEstudiantes = async (req, res) => {
   const query = `
     SELECT e.id_estudiante, e.nombre, e.numero_identificacion, e.grado, GROUP_CONCAT(m.nombre_materia) AS materias_reprobadas
     FROM estudiantes e
@@ -10,11 +10,11 @@ exports.obtenerEstudiantes = (req, res) => {
     GROUP BY e.id_estudiante;
   `;
 
-  connection.query(query, (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error al obtener los estudiantes.');
-    }
+  try {
+    const [results] = await db.query(query);
     res.json(results);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al obtener los estudiantes.');
+  }
 };

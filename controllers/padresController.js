@@ -1,7 +1,7 @@
 // controllers/padresController.js
-const connection = require('../config/db');
+const db = require('../config/db');
 
-exports.consultarTalleres = (req, res) => {
+exports.consultarTalleres = async (req, res) => {
   const { numero_identificacion } = req.query;
 
   const query = `
@@ -15,14 +15,14 @@ exports.consultarTalleres = (req, res) => {
     WHERE e.numero_identificacion = ?;
   `;
 
-  connection.query(query, [numero_identificacion], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error al consultar los talleres.');
-    }
+  try {
+    const [results] = await db.query(query, [numero_identificacion]);
     if (results.length === 0) {
       return res.status(404).send('No se encontraron registros para este estudiante.');
     }
     res.json(results);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al consultar los talleres.');
+  }
 };
