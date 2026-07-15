@@ -11,6 +11,7 @@ Variables utilizadas:
 | Variable | Descripción | Valor local predeterminado |
 | --- | --- | --- |
 | `EDIT_ACCESS_CODE` | Código para habilitar edición y carga | Sin valor; las escrituras quedan deshabilitadas |
+| `APP_BASE_PATH` | Prefijo público asignado por cPanel | `/seguimiento-talleres` |
 | `DB_HOST` | Servidor MySQL | `localhost` |
 | `DB_PORT` | Puerto MySQL | `3306` |
 | `DB_USER` | Usuario MySQL | `root` |
@@ -28,7 +29,7 @@ npm start
 
 ## Despliegue en cPanel
 
-La URL pública de esta instalación es `https://sanjosebetulia.edu.co/seguimiento-talleres/`. Las llamadas del navegador usan rutas relativas para conservar el prefijo `/seguimiento-talleres/` asignado por cPanel.
+La URL pública de esta instalación es `https://sanjosebetulia.edu.co/seguimiento-talleres/`. Las llamadas del navegador usan rutas relativas y Express acepta tanto `/api` en desarrollo como `/seguimiento-talleres/api` en cPanel. Si cambia la URI pública, actualice `APP_BASE_PATH`.
 
 1. En **Setup Node.js App**, use `/seguimiento-talleres` como URL de la aplicación y seleccione `app.js` como archivo de inicio.
 2. Configure `EDIT_ACCESS_CODE` y las variables `DB_*` en **Environment variables**. No suba un archivo `.env` con secretos.

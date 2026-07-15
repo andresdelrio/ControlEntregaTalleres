@@ -3,6 +3,13 @@ const express = require('express');
 const app = express();
 const path = require('path');
 
+function normalizeBasePath(value) {
+  if (!value || value === '/') return '';
+  return `/${String(value).replace(/^\/+|\/+$/g, '')}`;
+}
+
+const APP_BASE_PATH = normalizeBasePath(process.env.APP_BASE_PATH || '/seguimiento-talleres');
+
 // Configuración de middlewares
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -17,8 +24,12 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos tanto en desarrollo como bajo la URI asignada por cPanel.
+const publicDirectory = path.join(__dirname, 'public');
+app.use(express.static(publicDirectory));
+if (APP_BASE_PATH) {
+  app.use(APP_BASE_PATH, express.static(publicDirectory));
+}
 
 // Importar rutas
 const cargaRoutes = require('./routes/cargaRoutes');
@@ -27,12 +38,17 @@ const talleresRoutes = require('./routes/talleresRoutes');
 const padresRoutes = require('./routes/padresRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
 
-// Usar rutas
-app.use('/api/carga', cargaRoutes);
-app.use('/api/estudiantes', estudiantesRoutes);
-app.use('/api/talleres', talleresRoutes);
-app.use('/api/padres', padresRoutes);
-app.use('/api/reportes', reportesRoutes);
+// Usar las mismas rutas en la raíz local y bajo el prefijo público de cPanel.
+const apiRouter = express.Router();
+apiRouter.use('/carga', cargaRoutes);
+apiRouter.use('/estudiantes', estudiantesRoutes);
+apiRouter.use('/talleres', talleresRoutes);
+apiRouter.use('/padres', padresRoutes);
+apiRouter.use('/reportes', reportesRoutes);
+app.use('/api', apiRouter);
+if (APP_BASE_PATH) {
+  app.use(`${APP_BASE_PATH}/api`, apiRouter);
+}
 
 app.use((err, req, res, next) => {
   if (err && err.name === 'MulterError') {
@@ -55,3 +71,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.normalizeBasePath = normalizeBasePath;

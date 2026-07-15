@@ -15,6 +15,10 @@ test('la aplicación sirve la interfaz y protege las rutas de escritura', async 
   assert.equal(pageResponse.status, 200);
   assert.match(await pageResponse.text(), /Habilitar edición/);
 
+  const mountedPageResponse = await fetch(`${baseUrl}/seguimiento-talleres/`);
+  assert.equal(mountedPageResponse.status, 200);
+  assert.match(await mountedPageResponse.text(), /Seguimiento de talleres/);
+
   const rejectedResponse = await fetch(`${baseUrl}/api/talleres/verificar-codigo`, {
     method: 'POST',
     headers: { 'X-Edit-Code': 'incorrecto' },
@@ -26,6 +30,12 @@ test('la aplicación sirve la interfaz y protege las rutas de escritura', async 
     headers: { 'X-Edit-Code': 'codigo-integracion' },
   });
   assert.equal(acceptedResponse.status, 200);
+
+  const mountedAcceptedResponse = await fetch(`${baseUrl}/seguimiento-talleres/api/talleres/verificar-codigo`, {
+    method: 'POST',
+    headers: { 'X-Edit-Code': 'codigo-integracion' },
+  });
+  assert.equal(mountedAcceptedResponse.status, 200);
 
   const protectedUploadResponse = await fetch(`${baseUrl}/api/carga/carga-unificada`, {
     method: 'POST',
