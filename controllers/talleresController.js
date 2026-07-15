@@ -1,112 +1,142 @@
-// controllers/talleresController.js
 const db = require('../config/db').promisePool;
-const moment = require('moment');
+
+function parseWorkshopKey(body) {
+  const id_estudiante = Number(body.id_estudiante);
+  const id_materia = Number(body.id_materia);
+  const periodo = Number(body.periodo);
+
+  if (![id_estudiante, id_materia, periodo].every(Number.isInteger)
+      || id_estudiante <= 0 || id_materia <= 0 || periodo <= 0) {
+    return null;
+  }
+
+  return { id_estudiante, id_materia, periodo };
+}
+
+async function getWorkshopState({ id_estudiante, id_materia, periodo }) {
+  const [rows] = await db.query(
+    `SELECT taller_entregado_estudiante, fecha_entrega_estudiante,
+            taller_entregado_docente, fecha_entrega_docente, observaciones
+       FROM talleres
+      WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?`,
+    [id_estudiante, id_materia, periodo],
+  );
+  return rows[0] || null;
+}
+
+function validateBoolean(value) {
+  return typeof value === 'boolean';
+}
 
 exports.registrarEntregaEstudiante = async (req, res) => {
-  const { id_estudiante, id_materia, periodo, entregado } = req.body;
-  const fechaEntrega = entregado ? moment().format('YYYY-MM-DD') : null;
+  const key = parseWorkshopKey(req.body);
+  const { entregado } = req.body;
+
+  if (!key || !validateBoolean(entregado)) {
+    return res.status(400).json({ message: 'Los datos de la entrega no son válidos.' });
+  }
 
   try {
-    const checkQuery = 'SELECT * FROM talleres WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?';
-    const [results] = await db.query(checkQuery, [id_estudiante, id_materia, periodo]);
+    await db.query(
+      `INSERT INTO talleres
+        (id_estudiante, id_materia, periodo, taller_entregado_estudiante, fecha_entrega_estudiante)
+       VALUES (?, ?, ?, ?, IF(?, CURRENT_DATE, NULL))
+       ON DUPLICATE KEY UPDATE
+         taller_entregado_estudiante = ?,
+         fecha_entrega_estudiante = IF(?, CURRENT_DATE, NULL)`,
+      [key.id_estudiante, key.id_materia, key.periodo, entregado, entregado, entregado, entregado],
+    );
 
-    if (results.length > 0) {
-      const updateQuery = `
-        UPDATE talleres
-        SET taller_entregado_estudiante = ?, fecha_entrega_estudiante = ?
-        WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?
-      `;
-      await db.query(updateQuery, [entregado, fechaEntrega, id_estudiante, id_materia, periodo]);
-      res.send('Entrega del taller por parte del estudiante actualizada exitosamente.');
-    } else {
-      const insertQuery = `
-        INSERT INTO talleres (id_estudiante, id_materia, periodo, taller_entregado_estudiante, fecha_entrega_estudiante)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      await db.query(insertQuery, [id_estudiante, id_materia, periodo, entregado, fechaEntrega]);
-      res.send('Entrega del taller por parte del estudiante registrada exitosamente.');
-    }
+    return res.json({
+      message: 'Entrega del estudiante guardada.',
+      taller: await getWorkshopState(key),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error en la operación de base de datos.');
+    return res.status(500).json({ message: 'No fue posible guardar la entrega del estudiante.' });
   }
 };
 
 exports.registrarEntregaDocente = async (req, res) => {
-  const { id_estudiante, id_materia, periodo, entregado } = req.body;
-  const fechaEntrega = entregado ? new Date() : null;
+  const key = parseWorkshopKey(req.body);
+  const { entregado } = req.body;
+
+  if (!key || !validateBoolean(entregado)) {
+    return res.status(400).json({ message: 'Los datos de la entrega no son válidos.' });
+  }
 
   try {
-    const checkQuery = 'SELECT * FROM talleres WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?';
-    const [results] = await db.query(checkQuery, [id_estudiante, id_materia, periodo]);
+    await db.query(
+      `INSERT INTO talleres
+        (id_estudiante, id_materia, periodo, taller_entregado_docente, fecha_entrega_docente)
+       VALUES (?, ?, ?, ?, IF(?, CURRENT_DATE, NULL))
+       ON DUPLICATE KEY UPDATE
+         taller_entregado_docente = ?,
+         fecha_entrega_docente = IF(?, CURRENT_DATE, NULL)`,
+      [key.id_estudiante, key.id_materia, key.periodo, entregado, entregado, entregado, entregado],
+    );
 
-    if (results.length > 0) {
-      const updateQuery = `
-        UPDATE talleres
-        SET taller_entregado_docente = ?, fecha_entrega_docente = ?
-        WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?
-      `;
-      await db.query(updateQuery, [entregado, fechaEntrega, id_estudiante, id_materia, periodo]);
-      res.send('Entrega del taller al docente actualizada exitosamente.');
-    } else {
-      const insertQuery = `
-        INSERT INTO talleres (id_estudiante, id_materia, periodo, taller_entregado_docente, fecha_entrega_docente)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      await db.query(insertQuery, [id_estudiante, id_materia, periodo, entregado, fechaEntrega]);
-      res.send('Entrega del taller al docente registrada exitosamente.');
-    }
+    return res.json({
+      message: 'Entrega al docente guardada.',
+      taller: await getWorkshopState(key),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error en la operación de base de datos.');
+    return res.status(500).json({ message: 'No fue posible guardar la entrega al docente.' });
   }
 };
 
 exports.obtenerTalleres = async (req, res) => {
   const query = `
-    SELECT e.id_estudiante, e.nombre, e.numero_identificacion, e.grado, m.id_materia, m.nombre_materia, mr.periodo,
+    SELECT DISTINCT e.id_estudiante, e.nombre, e.numero_identificacion, e.grado,
+      m.id_materia, m.nombre_materia, mr.periodo,
       t.taller_entregado_estudiante, t.fecha_entrega_estudiante,
       t.taller_entregado_docente, t.fecha_entrega_docente, t.observaciones
     FROM estudiantes e
     JOIN materias_reprobadas mr ON e.id_estudiante = mr.id_estudiante
     JOIN materias m ON mr.id_materia = m.id_materia
-    LEFT JOIN talleres t ON e.id_estudiante = t.id_estudiante AND m.id_materia = t.id_materia AND mr.periodo = t.periodo;
+    LEFT JOIN talleres t ON e.id_estudiante = t.id_estudiante
+      AND m.id_materia = t.id_materia
+      AND mr.periodo = t.periodo
+    ORDER BY e.grado, e.nombre, m.nombre_materia, mr.periodo;
   `;
 
   try {
     const [results] = await db.query(query);
-    res.json(results);
+    res.set('Cache-Control', 'no-store');
+    return res.json(results);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error al obtener los talleres.');
+    return res.status(500).json({ message: 'No fue posible obtener los talleres.' });
   }
 };
 
 exports.actualizarObservaciones = async (req, res) => {
-  const { id_estudiante, id_materia, periodo, observaciones } = req.body;
+  const key = parseWorkshopKey(req.body);
+  const observaciones = typeof req.body.observaciones === 'string'
+    ? req.body.observaciones.trim()
+    : null;
+
+  if (!key || observaciones === null || observaciones.length > 2000) {
+    return res.status(400).json({ message: 'La observación no es válida o supera los 2.000 caracteres.' });
+  }
 
   try {
-    const checkQuery = 'SELECT * FROM talleres WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?';
-    const [results] = await db.query(checkQuery, [id_estudiante, id_materia, periodo]);
+    await db.query(
+      `INSERT INTO talleres (id_estudiante, id_materia, periodo, observaciones)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE observaciones = ?`,
+      [key.id_estudiante, key.id_materia, key.periodo, observaciones, observaciones],
+    );
 
-    if (results.length > 0) {
-      const updateQuery = `
-        UPDATE talleres
-        SET observaciones = ?
-        WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?
-      `;
-      await db.query(updateQuery, [observaciones, id_estudiante, id_materia, periodo]);
-      res.send('Observaciones actualizadas exitosamente.');
-    } else {
-      const insertQuery = `
-        INSERT INTO talleres (id_estudiante, id_materia, periodo, observaciones)
-        VALUES (?, ?, ?, ?)
-      `;
-      await db.query(insertQuery, [id_estudiante, id_materia, periodo, observaciones]);
-      res.send('Observaciones registradas exitosamente.');
-    }
+    return res.json({
+      message: 'Observaciones guardadas.',
+      taller: await getWorkshopState(key),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error en la operación de base de datos.');
+    return res.status(500).json({ message: 'No fue posible guardar las observaciones.' });
   }
 };
+
+exports.parseWorkshopKey = parseWorkshopKey;

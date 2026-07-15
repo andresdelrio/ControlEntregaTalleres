@@ -25,11 +25,12 @@ CREATE TABLE IF NOT EXISTS materias_reprobadas (
   id_materia INT NOT NULL,
   periodo INT,
   FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante),
-  FOREIGN KEY (id_materia) REFERENCES materias(id_materia)
+  FOREIGN KEY (id_materia) REFERENCES materias(id_materia),
+  UNIQUE KEY unique_materia_reprobada (id_estudiante, id_materia, periodo)
 );
 
 -- Tabla 'talleres' con restricción de unicidad
-CREATE TABLE talleres (
+CREATE TABLE IF NOT EXISTS talleres (
   id_taller INT AUTO_INCREMENT PRIMARY KEY,
   id_estudiante INT NOT NULL,
   id_materia INT NOT NULL,
@@ -43,4 +44,3 @@ CREATE TABLE talleres (
   FOREIGN KEY (id_materia) REFERENCES materias(id_materia),
   UNIQUE KEY unique_estudiante_materia_periodo (id_estudiante, id_materia, periodo)
 );
-

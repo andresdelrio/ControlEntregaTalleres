@@ -1,22 +1,20 @@
 {
   "name": "consultaentregatalleres2024",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "body-parser": "^1.20.3",
-    "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
     "express": "^4.21.0",
-    "moment": "^2.30.1",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.11.2",
-    "xlsx": "^0.18.5"
+    "read-excel-file": "^9.3.1"
   }
 }

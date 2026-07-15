@@ -1,122 +1,219 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  
-  <title>Gestión de Talleres</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seguimiento de talleres</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
-  <div class="container">
-  <h1>Gestión de Talleres de Recuperación</h1>
-  <a href="reportes.html">Ver Estudiantes con Talleres No Entregados</a>
-
-  <div class="filters card card-body mb-4">
-    <h4 class="card-title">Filtros</h4>
-    <div class="row">
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroNombre">Nombre Estudiante:</label>
-          <input type="text" id="filtroNombre" class="form-control" placeholder="Buscar por nombre">
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroGrado">Grado:</label>
-          <select id="filtroGrado" class="form-control">
-            <option value="">Todos</option>
-          </select>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroMateria">Materia:</label>
-          <select id="filtroMateria" class="form-control">
-            <option value="">Todas</option>
-          </select>
-        </div>
+  <nav class="app-navbar" aria-label="Navegación principal">
+    <div class="page-shell app-navbar__inner">
+      <a class="app-brand" href="index.html">Talleres de recuperación</a>
+      <div class="app-nav-links">
+        <a class="active" href="index.html" aria-current="page">Seguimiento</a>
+        <a href="cargaMasiva.html">Cargar datos</a>
+        <a href="consultaPadres.html">Consulta de familias</a>
+        <a href="reportes.html">Reportes</a>
       </div>
     </div>
-    <div class="row mt-3">
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroPeriodo">Periodo:</label>
-          <select id="filtroPeriodo" class="form-control">
+  </nav>
+
+  <main class="page-shell py-4 py-lg-5">
+    <header class="page-heading">
+      <div>
+        <p class="page-kicker">Control académico</p>
+        <h1>Seguimiento de entregas</h1>
+        <p class="page-intro">Consulte el estado de cada taller y habilite la edición únicamente cuando necesite registrar cambios.</p>
+      </div>
+      <button id="btnAccesoEdicion" class="btn btn-primary access-button" type="button">
+        Habilitar edición
+      </button>
+    </header>
+
+    <section class="access-card" aria-live="polite">
+      <span id="indicadorAcceso" class="access-dot" aria-hidden="true"></span>
+      <div class="flex-grow-1">
+        <strong id="estadoAcceso">Modo consulta</strong>
+        <p id="detalleAcceso">Los controles están bloqueados para evitar cambios accidentales.</p>
+      </div>
+      <span id="etiquetaAcceso" class="status-badge status-badge--locked">Bloqueado</span>
+    </section>
+
+    <section class="metrics-grid" aria-label="Resumen de talleres">
+      <article class="metric-card">
+        <span>Total de talleres</span>
+        <strong id="totalTalleres">—</strong>
+      </article>
+      <article class="metric-card metric-card--student">
+        <span>Recibidos del estudiante</span>
+        <strong id="totalEntregadosEstudiante">—</strong>
+      </article>
+      <article class="metric-card metric-card--teacher">
+        <span>Entregados al docente</span>
+        <strong id="totalEntregadosDocente">—</strong>
+      </article>
+      <article class="metric-card metric-card--pending">
+        <span>Pendientes del estudiante</span>
+        <strong id="totalPendientes">—</strong>
+      </article>
+    </section>
+
+    <section class="filters-card" aria-labelledby="tituloFiltros">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Encontrar registros</p>
+          <h2 id="tituloFiltros">Filtros</h2>
+        </div>
+        <button id="limpiarFiltros" class="btn btn-outline-secondary btn-sm" type="button">Limpiar filtros</button>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-lg-4">
+          <label for="filtroNombre" class="form-label">Estudiante</label>
+          <input type="search" id="filtroNombre" class="form-control" placeholder="Nombre o documento" autocomplete="off">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtroGrado" class="form-label">Grado</label>
+          <select id="filtroGrado" class="form-select"><option value="">Todos</option></select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtroMateria" class="form-label">Materia</label>
+          <select id="filtroMateria" class="form-select"><option value="">Todas</option></select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtroPeriodo" class="form-label">Periodo</label>
+          <select id="filtroPeriodo" class="form-select"><option value="">Todos</option></select>
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtroEntregadoEstudiante" class="form-label">Estado estudiante</label>
+          <select id="filtroEntregadoEstudiante" class="form-select">
             <option value="">Todos</option>
+            <option value="true">Entregado</option>
+            <option value="false">Pendiente</option>
+          </select>
+        </div>
+        <div class="col-12 col-lg-3">
+          <label for="filtroEntregadoDocente" class="form-label">Estado docente</label>
+          <select id="filtroEntregadoDocente" class="form-select">
+            <option value="">Todos</option>
+            <option value="true">Entregado</option>
+            <option value="false">Pendiente</option>
           </select>
         </div>
       </div>
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroEntregadoEstudiante">Entregado por Estudiante:</label>
-          <select id="filtroEntregadoEstudiante" class="form-control">
-            <option value="">Todos</option>
-            <option value="true">Sí</option>
-            <option value="false">No</option>
-          </select>
+    </section>
+
+    <section class="table-panel" aria-labelledby="tituloResultados">
+      <div class="table-panel__heading">
+        <div>
+          <p class="section-kicker">Listado</p>
+          <h2 id="tituloResultados">Talleres registrados</h2>
+        </div>
+        <div class="results-meta">
+          <span id="contadorResultados">Cargando…</span>
+          <button id="recargarDatos" class="btn btn-outline-secondary btn-sm" type="button">Actualizar datos</button>
         </div>
       </div>
-      <div class="col-md-4">
-        <div class="form-group">
-          <label for="filtroEntregadoDocente">Entregado al Docente:</label>
-          <select id="filtroEntregadoDocente" class="form-control">
-            <option value="">Todos</option>
-            <option value="true">Sí</option>
-            <option value="false">No</option>
-          </select>
+      <div class="table-scroll">
+        <table id="tabla-talleres" class="tracking-table">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Grado</th>
+              <th>Materia</th>
+              <th>Periodo</th>
+              <th>Recibido del estudiante</th>
+              <th>Fecha</th>
+              <th>Entregado al docente</th>
+              <th>Fecha</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="9" class="table-message">Cargando talleres…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-pagination" aria-label="Paginación de talleres">
+        <label for="tamanoPagina">Filas por página</label>
+        <select id="tamanoPagina" class="form-select form-select-sm">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+        <span id="resumenPagina" class="table-pagination__summary">—</span>
+        <div class="table-pagination__buttons">
+          <button id="paginaAnterior" class="btn btn-outline-secondary btn-sm" type="button">Anterior</button>
+          <button id="paginaSiguiente" class="btn btn-outline-secondary btn-sm" type="button">Siguiente</button>
         </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal fade" id="modalAcceso" tabindex="-1" aria-labelledby="tituloModalAcceso" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="formAccesoEdicion">
+          <div class="modal-header">
+            <div>
+              <p class="section-kicker mb-1">Acceso restringido</p>
+              <h2 class="modal-title fs-5" id="tituloModalAcceso">Habilitar edición</h2>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <label for="codigoEdicion" class="form-label">Código de edición</label>
+            <input type="password" id="codigoEdicion" class="form-control" minlength="6" autocomplete="current-password" required>
+            <p class="form-help">El código se conserva solo mientras esta pestaña permanezca abierta.</p>
+            <div id="errorAcceso" class="alert alert-danger d-none mt-3 mb-0" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="confirmarAcceso" type="submit" class="btn btn-primary">Habilitar edición</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 
-  <div class="table-responsive">
-  <table id="tabla-talleres" class="table table-striped table-hover table-primary table-bordered table-container">
-    <thead>
-      <tr>
-        <th>Estudiante</th>
-        <!-- <th>Identificación</th> -->
-        <th>Grado</th>
-        <th>Materia</th>
-        <th>Periodo</th>
-        <th>Entregado por Estudiante</th>
-        <th>Fecha</th>
-        <th>Entregado al Docente</th>
-        <th>Fecha</th>
-        <th>Observaciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Filas generadas dinámicamente -->
-    </tbody>
-  </table>
-  
-  <div id="modalObservaciones" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="close-button">&times;</span>
-      <h2>Observaciones</h2>
-      <textarea id="textoObservaciones" rows="5" cols="50"></textarea>
-      <br>
-      <button id="guardarObservaciones">Guardar</button>
+  <div class="modal fade" id="modalObservaciones" tabindex="-1" aria-labelledby="tituloModalObservaciones" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="formObservaciones">
+          <div class="modal-header">
+            <div>
+              <p class="section-kicker mb-1" id="contextoObservacion">Taller</p>
+              <h2 class="modal-title fs-5" id="tituloModalObservaciones">Editar observaciones</h2>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <label for="textoObservaciones" class="form-label">Observaciones</label>
+            <textarea id="textoObservaciones" class="form-control" rows="5" maxlength="2000" placeholder="Registre aquí una novedad o comentario"></textarea>
+            <p class="form-help text-end"><span id="contadorObservacion">0</span>/2000</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="guardarObservaciones" type="submit" class="btn btn-primary">Guardar observación</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Contenedor para los toasts -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-  <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="toast-header">
-      <strong class="me-auto" id="toastHeader"></strong>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-    </div>
-    <div class="toast-body" id="toastBody">
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="liveToast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+      <div class="toast-header">
+        <strong class="me-auto" id="toastHeader"></strong>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+      </div>
+      <div class="toast-body" id="toastBody"></div>
     </div>
   </div>
-</div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   <script src="js/main.js"></script>

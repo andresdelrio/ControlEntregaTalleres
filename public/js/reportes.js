@@ -30,7 +30,7 @@ function showToast(header, message, isError = false) {
 
 function cargarEstudiantesNoEntregados() {
   // No hay un botón específico para spinner aquí, pero se podría añadir un spinner a la tabla
-  fetch('/api/reportes/no-entregados')
+  fetch('api/reportes/no-entregados')
     .then(response => response.json())
     .then(data => {
       const tabla = document.getElementById('tabla-no-entregados').getElementsByTagName('tbody')[0];

@@ -1,113 +1,181 @@
-// controllers/cargaController.js
 const db = require('../config/db').promisePool;
-const xlsx = require('xlsx');
+const readXlsxFile = require('read-excel-file/node');
 const fs = require('fs');
+const path = require('path');
 const csv = require('csv-parser');
 
-// Función auxiliar para parsear archivos, devuelve una promesa
-const parseFile = (filePath, fileExtension) => {
-  return new Promise((resolve, reject) => {
-    if (fileExtension === 'xlsx') {
-      try {
-        const workbook = xlsx.readFile(filePath);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = xlsx.utils.sheet_to_json(worksheet);
-        resolve(jsonData);
-      } catch (error) {
-        reject(new Error('Error al leer el archivo Excel.'));
-      }
-    } else if (fileExtension === 'csv') {
+const REQUIRED_COLUMNS = ['estudiante', 'documento', 'grupo', 'periodo', 'materia'];
+
+const parseFile = async (filePath, fileExtension) => {
+  if (fileExtension === '.xlsx') {
+    try {
+      const rows = await readXlsxFile(filePath);
+      if (rows.length === 0) return [];
+      const [headers, ...dataRows] = rows;
+      return dataRows
+        .filter((row) => row.some((value) => value !== null && value !== ''))
+        .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ''])));
+    } catch (error) {
+      const parseError = new Error('No se pudo leer el archivo Excel. Verifique que no esté dañado.');
+      parseError.status = 400;
+      throw parseError;
+    }
+  }
+
+  if (fileExtension === '.csv') {
+    return new Promise((resolve, reject) => {
       const results = [];
       fs.createReadStream(filePath)
         .pipe(csv())
         .on('data', (data) => results.push(data))
         .on('end', () => resolve(results))
-        .on('error', (error) => reject(new Error('Error al leer el archivo CSV.')));
-    } else {
-      reject(new Error('Formato de archivo no soportado.'));
-    }
-  });
+        .on('error', () => {
+          const parseError = new Error('No se pudo leer el archivo CSV.');
+          parseError.status = 400;
+          reject(parseError);
+        });
+    });
+  }
+
+  const formatError = new Error('Formato de archivo no soportado.');
+  formatError.status = 400;
+  throw formatError;
 };
+
+function normalizeText(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeRows(data) {
+  const errors = [];
+  const recordsByKey = new Map();
+
+  data.forEach((row, index) => {
+    const normalizedRow = Object.entries(row).reduce((normalized, [key, value]) => {
+      normalized[normalizeText(key).toLowerCase()] = value;
+      return normalized;
+    }, {});
+
+    const missingColumns = REQUIRED_COLUMNS.filter((column) => !(column in normalizedRow));
+    if (missingColumns.length > 0) {
+      errors.push(`Fila ${index + 2}: faltan las columnas ${missingColumns.join(', ')}.`);
+      return;
+    }
+
+    const nombre = normalizeText(normalizedRow.estudiante);
+    const numero_identificacion = normalizeText(normalizedRow.documento);
+    const grado = normalizeText(normalizedRow.grupo);
+    const nombre_materia = normalizeText(normalizedRow.materia);
+    const periodo = Number(normalizedRow.periodo);
+
+    if (!nombre || !numero_identificacion || !grado || !nombre_materia
+        || !Number.isInteger(periodo) || periodo <= 0 || periodo > 10) {
+      errors.push(`Fila ${index + 2}: revise estudiante, documento, grupo, periodo y materia.`);
+      return;
+    }
+
+    const record = { nombre, numero_identificacion, grado, periodo, nombre_materia };
+    const key = `${numero_identificacion.toLowerCase()}|${nombre_materia.toLowerCase()}|${periodo}`;
+    recordsByKey.set(key, record);
+  });
+
+  return {
+    errors,
+    records: Array.from(recordsByKey.values()),
+    duplicates: data.length - errors.length - recordsByKey.size,
+  };
+}
 
 exports.cargaMasivaUnificada = async (req, res) => {
   const file = req.file;
   if (!file) {
-    return res.status(400).send('No se ha subido ningún archivo.');
+    return res.status(400).json({ message: 'Seleccione un archivo .xlsx o .csv.' });
   }
 
   const filePath = file.path;
-  const fileExtension = file.originalname.split('.').pop().toLowerCase();
-
-  if (!['xlsx', 'csv'].includes(fileExtension)) {
-    fs.unlinkSync(filePath); // Eliminar archivo no soportado
-    return res.status(400).send('Formato de archivo no soportado. Por favor, suba un archivo .xlsx o .csv.');
-  }
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  let connection;
 
   try {
     const data = await parseFile(filePath, fileExtension);
-    const errores = [];
-    const registros = [];
+    if (data.length === 0) {
+      return res.status(400).json({ message: 'El archivo no contiene registros para cargar.' });
+    }
 
-    // 1. Validar y normalizar datos del archivo
-    data.forEach((row, index) => {
-      const normalizedRow = {};
-      for (const key in row) {
-        normalizedRow[key.trim().toLowerCase()] = row[key];
-      }
+    const { errors, records, duplicates } = normalizeRows(data);
+    if (errors.length > 0) {
+      return res.status(400).json({
+        message: 'El archivo contiene datos que deben corregirse.',
+        errors: errors.slice(0, 50),
+        totalErrors: errors.length,
+      });
+    }
 
-      const { estudiante, documento, grupo, periodo, materia } = normalizedRow;
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-      if (!estudiante || !documento || !grupo || !periodo || !materia) {
-        errores.push(`Fila ${index + 2}: Datos incompletos. Asegúrese de que todas las columnas (Estudiante, Documento, Grupo, Periodo, Materia) estén presentes.`);
-      } else {
-        registros.push({
-          nombre: estudiante,
-          numero_identificacion: documento,
-          grado: grupo,
-          periodo: periodo,
-          nombre_materia: materia,
-        });
-      }
+    let createdAssignments = 0;
+    for (const record of records) {
+      const [studentResult] = await connection.query(
+        `INSERT INTO estudiantes (nombre, numero_identificacion, grado)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           id_estudiante = LAST_INSERT_ID(id_estudiante),
+           nombre = VALUES(nombre),
+           grado = VALUES(grado)`,
+        [record.nombre, record.numero_identificacion, record.grado],
+      );
+
+      const [subjectResult] = await connection.query(
+        `INSERT INTO materias (nombre_materia)
+         VALUES (?)
+         ON DUPLICATE KEY UPDATE id_materia = LAST_INSERT_ID(id_materia)`,
+        [record.nombre_materia],
+      );
+
+      const [assignmentResult] = await connection.query(
+        `INSERT INTO materias_reprobadas (id_estudiante, id_materia, periodo)
+         SELECT ?, ?, ?
+         WHERE NOT EXISTS (
+           SELECT 1 FROM materias_reprobadas
+           WHERE id_estudiante = ? AND id_materia = ? AND periodo = ?
+         )`,
+        [
+          studentResult.insertId,
+          subjectResult.insertId,
+          record.periodo,
+          studentResult.insertId,
+          subjectResult.insertId,
+          record.periodo,
+        ],
+      );
+      createdAssignments += assignmentResult.affectedRows;
+    }
+
+    await connection.commit();
+    return res.json({
+      message: 'Carga completada.',
+      summary: {
+        processed: records.length,
+        created: createdAssignments,
+        alreadyExisting: records.length - createdAssignments,
+        duplicatesInFile: Math.max(0, duplicates),
+      },
     });
-
-    if (errores.length > 0) {
-      return res.status(400).json({ errores });
-    }
-
-    // 2. Procesar registros en la base de datos
-    for (const registro of registros) {
-      // Usar el pool de conexiones directamente con await
-      const queryEstudiante = 'INSERT IGNORE INTO estudiantes (nombre, numero_identificacion, grado) VALUES (?, ?, ?)';
-      await db.query(queryEstudiante, [registro.nombre, registro.numero_identificacion, registro.grado]);
-
-      const queryMateria = 'INSERT IGNORE INTO materias (nombre_materia) VALUES (?)';
-      await db.query(queryMateria, [registro.nombre_materia]);
-
-      const [estudianteResult] = await db.query('SELECT id_estudiante FROM estudiantes WHERE numero_identificacion = ?', [registro.numero_identificacion]);
-      const [materiaResult] = await db.query('SELECT id_materia FROM materias WHERE nombre_materia = ?', [registro.nombre_materia]);
-
-      if (estudianteResult.length > 0 && materiaResult.length > 0) {
-        const id_estudiante = estudianteResult[0].id_estudiante;
-        const id_materia = materiaResult[0].id_materia;
-
-        const queryReprobada = 'INSERT IGNORE INTO materias_reprobadas (id_estudiante, id_materia, periodo) VALUES (?, ?, ?)';
-        await db.query(queryReprobada, [id_estudiante, id_materia, registro.periodo]);
-      } else {
-        errores.push(`No se pudo encontrar el ID para el estudiante con documento ${registro.numero_identificacion} o la materia ${registro.nombre_materia}.`);
-      }
-    }
-
-    if (errores.length > 0) {
-        return res.status(400).json({ errores });
-    }
-
-    res.send('Carga masiva completada exitosamente.');
-
   } catch (err) {
+    if (connection) {
+      await connection.rollback();
+    }
     console.error(err);
-    res.status(500).send('Error durante el procesamiento del archivo o la carga de datos.');
+    return res.status(err.status || 500).json({
+      message: err.status ? err.message : 'No fue posible procesar el archivo.',
+    });
   } finally {
-    // 3. Asegurar que el archivo se elimine
-    fs.unlinkSync(filePath);
+    if (connection) {
+      connection.release();
+    }
+    fs.promises.unlink(filePath).catch(() => {});
   }
 };
+
+exports.normalizeRows = normalizeRows;

@@ -1,333 +1,490 @@
-let allTalleresData = [];
-let filteredTalleresData = [];
+const EDIT_CODE_STORAGE_KEY = 'talleres_edit_code';
+const FILTERS_STORAGE_KEY = 'talleres_filters';
 
-let modal;
-let closeButton;
-let guardarButton;
-let idEstudianteActual;
-let idMateriaActual;
-let periodoActual;
+const state = {
+  allTalleres: [],
+  filteredTalleres: [],
+  editCode: sessionStorage.getItem(EDIT_CODE_STORAGE_KEY) || '',
+  editEnabled: false,
+  currentObservation: null,
+  page: 1,
+  pageSize: 50,
+};
 
-document.addEventListener('DOMContentLoaded', () => {
-  cargarTalleres();
-  inicializarModal();
-  inicializarFiltros();
+let accessModal;
+let observationsModal;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  accessModal = new bootstrap.Modal(document.getElementById('modalAcceso'));
+  observationsModal = new bootstrap.Modal(document.getElementById('modalObservaciones'));
+  bindEvents();
+  restoreFilters();
+  setEditEnabled(false);
+
+  await Promise.all([
+    loadTalleres(),
+    verifyStoredCode(),
+  ]);
 });
 
-function inicializarModal() {
-  modal = document.getElementById('modalObservaciones');
-  closeButton = document.querySelector('.close-button');
-  guardarButton = document.getElementById('guardarObservaciones');
+function bindEvents() {
+  const filterIds = [
+    'filtroNombre',
+    'filtroGrado',
+    'filtroMateria',
+    'filtroPeriodo',
+    'filtroEntregadoEstudiante',
+    'filtroEntregadoDocente',
+  ];
 
-  closeButton.addEventListener('click', cerrarModal);
-  window.addEventListener('click', (event) => {
-    if (event.target === modal) {
-      cerrarModal();
+  filterIds.forEach((id) => {
+    const eventName = id === 'filtroNombre' ? 'input' : 'change';
+    document.getElementById(id).addEventListener(eventName, () => applyFiltersAndRenderTable({ resetPage: true }));
+  });
+
+  document.getElementById('limpiarFiltros').addEventListener('click', clearFilters);
+  document.getElementById('recargarDatos').addEventListener('click', loadTalleres);
+  document.getElementById('tamanoPagina').addEventListener('change', (event) => {
+    state.pageSize = Number(event.target.value);
+    state.page = 1;
+    renderTable();
+  });
+  document.getElementById('paginaAnterior').addEventListener('click', () => changePage(-1));
+  document.getElementById('paginaSiguiente').addEventListener('click', () => changePage(1));
+  document.getElementById('btnAccesoEdicion').addEventListener('click', () => {
+    if (state.editEnabled) {
+      lockEditing();
+      showToast('Edición bloqueada', 'Los datos continúan disponibles en modo consulta.');
+      return;
     }
+    openAccessModal();
   });
-
-  guardarButton.addEventListener('click', () => {
-    const observacion = document.getElementById('textoObservaciones').value;
-    actualizarObservaciones(idEstudianteActual, idMateriaActual, periodoActual, observacion);
-    cerrarModal();
-  });
+  document.getElementById('formAccesoEdicion').addEventListener('submit', unlockEditing);
+  document.getElementById('formObservaciones').addEventListener('submit', saveObservation);
+  document.getElementById('textoObservaciones').addEventListener('input', updateObservationCounter);
 }
 
-function abrirModal(observacionActual, idEstudiante, idMateria, periodo) {
-  document.getElementById('textoObservaciones').value = observacionActual || '';
-  idEstudianteActual = idEstudiante;
-  idMateriaActual = idMateria;
-  periodoActual = periodo;
-  modal.style.display = 'block';
-}
-
-function cerrarModal() {
-  modal.style.display = 'none';
-}
-
-function showToast(header, message, isError = false) {
-  const toastLiveExample = document.getElementById('liveToast');
-  const toastHeader = document.getElementById('toastHeader');
-  const toastBody = document.getElementById('toastBody');
-
-  toastHeader.textContent = header;
-  toastBody.textContent = message;
-
-  if (isError) {
-    toastHeader.classList.add('text-danger');
-    toastHeader.classList.remove('text-success');
-  } else {
-    toastHeader.classList.add('text-success');
-    toastHeader.classList.remove('text-danger');
+async function apiRequest(url, options = {}, requireCode = false) {
+  const headers = new Headers(options.headers || {});
+  if (requireCode) {
+    headers.set('X-Edit-Code', state.editCode);
   }
 
-  const toast = new bootstrap.Toast(toastLiveExample);
-  toast.show();
+  const response = await fetch(url, { ...options, headers });
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : { message: await response.text() };
+
+  if (!response.ok) {
+    const error = new Error(payload.message || 'No fue posible completar la operación.');
+    error.status = response.status;
+    error.code = payload.code;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
 }
 
-function showSpinner(buttonId, show) {
-  const button = document.getElementById(buttonId);
-  if (!button) return;
+async function loadTalleres() {
+  setTableMessage('Cargando talleres…');
+  const reloadButton = document.getElementById('recargarDatos');
+  setButtonLoading(reloadButton, true, 'Actualizando…');
 
-  if (show) {
-    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando...';
+  try {
+    const data = await apiRequest('api/talleres');
+    state.allTalleres = Array.isArray(data) ? data : [];
+    populateFilters();
+    // Grado, materia y periodo se restauran después de crear sus opciones dinámicas.
+    restoreFilters();
+    updateMetrics();
+    applyFiltersAndRenderTable({ resetPage: false });
+  } catch (error) {
+    setTableMessage('No fue posible cargar los talleres. Use “Actualizar datos” para intentar de nuevo.');
+    showToast('Error al cargar', error.message, true);
+  } finally {
+    setButtonLoading(reloadButton, false);
+  }
+}
+
+function populateFilters() {
+  populateSelect('filtroGrado', uniqueValues('grado'), 'Todos');
+  populateSelect('filtroMateria', uniqueValues('nombre_materia'), 'Todas');
+  populateSelect('filtroPeriodo', uniqueValues('periodo', true), 'Todos');
+}
+
+function uniqueValues(property, numeric = false) {
+  const values = [...new Set(state.allTalleres.map((item) => item[property]).filter((value) => value !== null && value !== ''))];
+  return values.sort(numeric
+    ? (a, b) => Number(a) - Number(b)
+    : (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
+}
+
+function populateSelect(id, values, allLabel) {
+  const select = document.getElementById(id);
+  const selectedValue = select.value;
+  select.replaceChildren(new Option(allLabel, ''));
+  values.forEach((value) => select.add(new Option(value, value)));
+  if ([...select.options].some((option) => option.value === selectedValue)) {
+    select.value = selectedValue;
+  }
+}
+
+function readFilters() {
+  return {
+    nombre: document.getElementById('filtroNombre').value,
+    grado: document.getElementById('filtroGrado').value,
+    materia: document.getElementById('filtroMateria').value,
+    periodo: document.getElementById('filtroPeriodo').value,
+    entregadoEstudiante: document.getElementById('filtroEntregadoEstudiante').value,
+    entregadoDocente: document.getElementById('filtroEntregadoDocente').value,
+  };
+}
+
+function restoreFilters() {
+  try {
+    const filters = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) || '{}');
+    document.getElementById('filtroNombre').value = filters.nombre || '';
+    document.getElementById('filtroGrado').value = filters.grado || '';
+    document.getElementById('filtroMateria').value = filters.materia || '';
+    document.getElementById('filtroPeriodo').value = filters.periodo || '';
+    document.getElementById('filtroEntregadoEstudiante').value = filters.entregadoEstudiante || '';
+    document.getElementById('filtroEntregadoDocente').value = filters.entregadoDocente || '';
+  } catch (error) {
+    sessionStorage.removeItem(FILTERS_STORAGE_KEY);
+  }
+}
+
+function normalizeForSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function applyFiltersAndRenderTable({ resetPage = true } = {}) {
+  const filters = readFilters();
+  sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  const nameQuery = normalizeForSearch(filters.nombre);
+
+  state.filteredTalleres = state.allTalleres.filter((taller) => {
+    const searchableStudent = normalizeForSearch(`${taller.nombre} ${taller.numero_identificacion}`);
+    return (!nameQuery || searchableStudent.includes(nameQuery))
+      && (!filters.grado || String(taller.grado) === filters.grado)
+      && (!filters.materia || String(taller.nombre_materia) === filters.materia)
+      && (!filters.periodo || String(taller.periodo) === filters.periodo)
+      && matchesBooleanFilter(taller.taller_entregado_estudiante, filters.entregadoEstudiante)
+      && matchesBooleanFilter(taller.taller_entregado_docente, filters.entregadoDocente);
+  }).sort(compareTalleres);
+
+  if (resetPage) state.page = 1;
+  renderTable();
+  document.getElementById('contadorResultados').textContent = `${state.filteredTalleres.length} de ${state.allTalleres.length} talleres`;
+}
+
+function matchesBooleanFilter(value, filterValue) {
+  if (!filterValue) return true;
+  return Boolean(value) === (filterValue === 'true');
+}
+
+function compareTalleres(a, b) {
+  return String(a.grado).localeCompare(String(b.grado), 'es', { numeric: true })
+    || String(a.nombre).localeCompare(String(b.nombre), 'es')
+    || String(a.nombre_materia).localeCompare(String(b.nombre_materia), 'es')
+    || Number(a.periodo) - Number(b.periodo);
+}
+
+function clearFilters() {
+  ['filtroNombre', 'filtroGrado', 'filtroMateria', 'filtroPeriodo', 'filtroEntregadoEstudiante', 'filtroEntregadoDocente']
+    .forEach((id) => { document.getElementById(id).value = ''; });
+  applyFiltersAndRenderTable();
+  document.getElementById('filtroNombre').focus();
+}
+
+function renderTable() {
+  const tbody = document.querySelector('#tabla-talleres tbody');
+  tbody.replaceChildren();
+
+  if (state.filteredTalleres.length === 0) {
+    setTableMessage(state.allTalleres.length === 0
+      ? 'Todavía no hay talleres cargados. Use “Cargar datos” para comenzar.'
+      : 'No hay talleres que coincidan con los filtros seleccionados.');
+    updatePagination();
+    return;
+  }
+
+  const totalPages = Math.ceil(state.filteredTalleres.length / state.pageSize);
+  state.page = Math.min(Math.max(1, state.page), totalPages);
+  const start = (state.page - 1) * state.pageSize;
+  const visibleTalleres = state.filteredTalleres.slice(start, start + state.pageSize);
+  const fragment = document.createDocumentFragment();
+  visibleTalleres.forEach((taller) => fragment.appendChild(createWorkshopRow(taller)));
+  tbody.appendChild(fragment);
+  updatePagination();
+}
+
+function changePage(direction) {
+  const totalPages = Math.max(1, Math.ceil(state.filteredTalleres.length / state.pageSize));
+  state.page = Math.min(totalPages, Math.max(1, state.page + direction));
+  renderTable();
+  document.querySelector('.table-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updatePagination() {
+  const total = state.filteredTalleres.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+  state.page = Math.min(state.page, totalPages);
+  const start = total === 0 ? 0 : (state.page - 1) * state.pageSize + 1;
+  const end = Math.min(state.page * state.pageSize, total);
+  document.getElementById('resumenPagina').textContent = total === 0
+    ? 'Sin resultados'
+    : `${start}–${end} de ${total} · Página ${state.page} de ${totalPages}`;
+  document.getElementById('paginaAnterior').disabled = state.page <= 1 || total === 0;
+  document.getElementById('paginaSiguiente').disabled = state.page >= totalPages || total === 0;
+}
+
+function createWorkshopRow(taller) {
+  const row = document.createElement('tr');
+  row.appendChild(textCell(formatStudentName(taller.nombre), 'student-name'));
+  row.appendChild(textCell(taller.grado));
+  row.appendChild(textCell(taller.nombre_materia));
+  row.appendChild(textCell(taller.periodo, 'text-center'));
+  row.appendChild(createStatusCell(taller, 'estudiante'));
+  row.appendChild(textCell(formatDate(taller.fecha_entrega_estudiante), 'date-cell'));
+  row.appendChild(createStatusCell(taller, 'docente'));
+  row.appendChild(textCell(formatDate(taller.fecha_entrega_docente), 'date-cell'));
+  row.appendChild(createObservationCell(taller));
+  return row;
+}
+
+function textCell(value, className = '') {
+  const cell = document.createElement('td');
+  cell.textContent = value ?? '';
+  if (className) cell.className = className;
+  return cell;
+}
+
+function createStatusCell(taller, type) {
+  const isStudent = type === 'estudiante';
+  const property = isStudent ? 'taller_entregado_estudiante' : 'taller_entregado_docente';
+  const cell = document.createElement('td');
+  cell.className = 'status-cell';
+  const label = document.createElement('label');
+  label.className = 'status-control';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = Boolean(taller[property]);
+  checkbox.disabled = !state.editEnabled;
+  checkbox.setAttribute('aria-label', `${isStudent ? 'Recibido del estudiante' : 'Entregado al docente'}: ${taller.nombre}`);
+  const text = document.createElement('span');
+  text.textContent = checkbox.checked ? 'Sí' : 'No';
+  text.className = checkbox.checked ? 'status-yes' : 'status-no';
+  checkbox.addEventListener('change', () => saveDeliveryStatus(taller, type, checkbox));
+  label.append(checkbox, text);
+  cell.appendChild(label);
+  return cell;
+}
+
+function createObservationCell(taller) {
+  const cell = document.createElement('td');
+  cell.className = 'observation-cell';
+  const content = document.createElement('div');
+  content.className = 'observation-content';
+  const text = document.createElement('span');
+  text.className = taller.observaciones ? 'observation-text' : 'observation-text observation-text--empty';
+  text.textContent = taller.observaciones || 'Sin observaciones';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn-sm btn-outline-primary';
+  button.textContent = taller.observaciones ? 'Editar' : 'Agregar';
+  button.disabled = !state.editEnabled;
+  button.addEventListener('click', () => openObservationModal(taller));
+  content.append(text, button);
+  cell.appendChild(content);
+  return cell;
+}
+
+async function saveDeliveryStatus(taller, type, checkbox) {
+  checkbox.disabled = true;
+  const endpoint = type === 'estudiante' ? 'entrega-estudiante' : 'entrega-docente';
+
+  try {
+    const payload = await apiRequest(`api/talleres/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_estudiante: taller.id_estudiante,
+        id_materia: taller.id_materia,
+        periodo: taller.periodo,
+        entregado: checkbox.checked,
+      }),
+    }, true);
+    Object.assign(taller, payload.taller);
+    updateMetrics();
+    applyFiltersAndRenderTable({ resetPage: false });
+    showToast('Cambio guardado', payload.message);
+  } catch (error) {
+    handleProtectedError(error);
+    renderTable();
+  }
+}
+
+function openObservationModal(taller) {
+  state.currentObservation = taller;
+  document.getElementById('contextoObservacion').textContent = `${formatStudentName(taller.nombre)} · ${taller.nombre_materia} · Periodo ${taller.periodo}`;
+  document.getElementById('textoObservaciones').value = taller.observaciones || '';
+  updateObservationCounter();
+  observationsModal.show();
+}
+
+async function saveObservation(event) {
+  event.preventDefault();
+  const taller = state.currentObservation;
+  if (!taller) return;
+
+  const button = document.getElementById('guardarObservaciones');
+  setButtonLoading(button, true, 'Guardando…');
+  try {
+    const payload = await apiRequest('api/talleres/actualizar-observaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_estudiante: taller.id_estudiante,
+        id_materia: taller.id_materia,
+        periodo: taller.periodo,
+        observaciones: document.getElementById('textoObservaciones').value,
+      }),
+    }, true);
+    Object.assign(taller, payload.taller);
+    observationsModal.hide();
+    applyFiltersAndRenderTable({ resetPage: false });
+    showToast('Observación guardada', payload.message);
+  } catch (error) {
+    handleProtectedError(error);
+  } finally {
+    setButtonLoading(button, false);
+  }
+}
+
+function updateObservationCounter() {
+  document.getElementById('contadorObservacion').textContent = document.getElementById('textoObservaciones').value.length;
+}
+
+async function verifyStoredCode() {
+  if (!state.editCode) return;
+  try {
+    await apiRequest('api/talleres/verificar-codigo', { method: 'POST' }, true);
+    setEditEnabled(true);
+  } catch (error) {
+    lockEditing();
+  }
+}
+
+function openAccessModal() {
+  document.getElementById('codigoEdicion').value = '';
+  document.getElementById('errorAcceso').classList.add('d-none');
+  accessModal.show();
+  document.getElementById('modalAcceso').addEventListener('shown.bs.modal', () => {
+    document.getElementById('codigoEdicion').focus();
+  }, { once: true });
+}
+
+async function unlockEditing(event) {
+  event.preventDefault();
+  const errorElement = document.getElementById('errorAcceso');
+  const button = document.getElementById('confirmarAcceso');
+  state.editCode = document.getElementById('codigoEdicion').value;
+  errorElement.classList.add('d-none');
+  setButtonLoading(button, true, 'Comprobando…');
+
+  try {
+    await apiRequest('api/talleres/verificar-codigo', { method: 'POST' }, true);
+    sessionStorage.setItem(EDIT_CODE_STORAGE_KEY, state.editCode);
+    setEditEnabled(true);
+    accessModal.hide();
+    showToast('Edición habilitada', 'Ya puede actualizar entregas y observaciones.');
+  } catch (error) {
+    state.editCode = '';
+    sessionStorage.removeItem(EDIT_CODE_STORAGE_KEY);
+    errorElement.textContent = error.message;
+    errorElement.classList.remove('d-none');
+  } finally {
+    setButtonLoading(button, false);
+  }
+}
+
+function setEditEnabled(enabled) {
+  state.editEnabled = enabled;
+  const accessButton = document.getElementById('btnAccesoEdicion');
+  const badge = document.getElementById('etiquetaAcceso');
+  document.getElementById('estadoAcceso').textContent = enabled ? 'Edición habilitada' : 'Modo consulta';
+  document.getElementById('detalleAcceso').textContent = enabled
+    ? 'Puede registrar entregas y actualizar observaciones en esta pestaña.'
+    : 'Los controles están bloqueados para evitar cambios accidentales.';
+  accessButton.textContent = enabled ? 'Bloquear edición' : 'Habilitar edición';
+  accessButton.classList.toggle('btn-primary', !enabled);
+  accessButton.classList.toggle('btn-outline-secondary', enabled);
+  badge.textContent = enabled ? 'Habilitado' : 'Bloqueado';
+  badge.className = enabled ? 'status-badge status-badge--enabled' : 'status-badge status-badge--locked';
+  document.getElementById('indicadorAcceso').classList.toggle('access-dot--enabled', enabled);
+  if (state.allTalleres.length > 0) renderTable();
+}
+
+function lockEditing() {
+  state.editCode = '';
+  sessionStorage.removeItem(EDIT_CODE_STORAGE_KEY);
+  setEditEnabled(false);
+}
+
+function handleProtectedError(error) {
+  if ([401, 429, 503].includes(error.status)) {
+    lockEditing();
+  }
+  showToast('No se guardó el cambio', error.message, true);
+}
+
+function updateMetrics() {
+  document.getElementById('totalTalleres').textContent = state.allTalleres.length;
+  document.getElementById('totalEntregadosEstudiante').textContent = state.allTalleres.filter((item) => Boolean(item.taller_entregado_estudiante)).length;
+  document.getElementById('totalEntregadosDocente').textContent = state.allTalleres.filter((item) => Boolean(item.taller_entregado_docente)).length;
+  document.getElementById('totalPendientes').textContent = state.allTalleres.filter((item) => !item.taller_entregado_estudiante).length;
+}
+
+function setTableMessage(message) {
+  const tbody = document.querySelector('#tabla-talleres tbody');
+  const row = document.createElement('tr');
+  const cell = document.createElement('td');
+  cell.colSpan = 9;
+  cell.className = 'table-message';
+  cell.textContent = message;
+  row.appendChild(cell);
+  tbody.replaceChildren(row);
+}
+
+function formatStudentName(name) {
+  return String(name || '').toLocaleLowerCase('es').replace(/(^|\s)\p{L}/gu, (letter) => letter.toLocaleUpperCase('es'));
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '—';
+}
+
+function setButtonLoading(button, loading, loadingText = 'Cargando…') {
+  if (loading) {
+    button.dataset.originalText = button.textContent;
+    button.textContent = loadingText;
     button.disabled = true;
   } else {
-    // Restaurar el texto original del botón (esto puede requerir almacenar el texto original)
-    // Por simplicidad, aquí solo se quita el spinner y se habilita.
-    if (buttonId === 'guardarObservaciones') {
-      button.innerHTML = 'Guardar';
-    } else if (buttonId === 'form-carga-unificada-btn') { // Asumiendo un ID para el botón de carga masiva
-      button.innerHTML = 'Cargar';
-    }
+    button.textContent = button.dataset.originalText || button.textContent;
     button.disabled = false;
   }
 }
 
-function cargarTalleres() {
-  fetch('/api/talleres')
-    .then(response => response.json())
-    .then(data => {
-      allTalleresData = data; // Almacenar todos los datos
-      populateFilters(); // Llenar los selectores de filtro
-      applyFiltersAndRenderTable(); // Aplicar filtros y renderizar la tabla inicial
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('Error', 'Error al cargar los talleres.', true);
-    });
-}
-
-function populateFilters() {
-  const grados = new Set();
-  const materias = new Set();
-  const periodos = new Set();
-
-  allTalleresData.forEach(taller => {
-    grados.add(taller.grado);
-    materias.add(taller.nombre_materia);
-    periodos.add(taller.periodo);
-  });
-
-  const filtroGrado = document.getElementById('filtroGrado');
-  const filtroMateria = document.getElementById('filtroMateria');
-  const filtroPeriodo = document.getElementById('filtroPeriodo');
-
-  // Limpiar y poblar Grados
-  filtroGrado.innerHTML = '<option value="">Todos</option>';
-  Array.from(grados).sort().forEach(grado => {
-    const option = document.createElement('option');
-    option.value = grado;
-    option.innerText = grado;
-    filtroGrado.appendChild(option);
-  });
-
-  // Limpiar y poblar Materias
-  filtroMateria.innerHTML = '<option value="">Todas</option>';
-  Array.from(materias).sort().forEach(materia => {
-    const option = document.createElement('option');
-    option.value = materia;
-    option.innerText = materia;
-    filtroMateria.appendChild(option);
-  });
-
-  // Limpiar y poblar Periodos
-  filtroPeriodo.innerHTML = '<option value="">Todos</option>';
-  Array.from(periodos).sort((a, b) => a - b).forEach(periodo => {
-    const option = document.createElement('option');
-    option.value = periodo;
-    option.innerText = periodo;
-    filtroPeriodo.appendChild(option);
-  });
-}
-
-function inicializarFiltros() {
-  document.getElementById('filtroNombre').addEventListener('input', applyFiltersAndRenderTable);
-  document.getElementById('filtroGrado').addEventListener('change', applyFiltersAndRenderTable);
-  document.getElementById('filtroMateria').addEventListener('change', applyFiltersAndRenderTable);
-  document.getElementById('filtroPeriodo').addEventListener('change', applyFiltersAndRenderTable);
-  document.getElementById('filtroEntregadoEstudiante').addEventListener('change', applyFiltersAndRenderTable);
-  document.getElementById('filtroEntregadoDocente').addEventListener('change', applyFiltersAndRenderTable);
-}
-
-function applyFiltersAndRenderTable() {
-  const filtroNombre = document.getElementById('filtroNombre').value.toLowerCase();
-  const filtroGrado = document.getElementById('filtroGrado').value;
-  const filtroMateria = document.getElementById('filtroMateria').value;
-  const filtroPeriodo = document.getElementById('filtroPeriodo').value;
-  const filtroEntregadoEstudiante = document.getElementById('filtroEntregadoEstudiante').value;
-  const filtroEntregadoDocente = document.getElementById('filtroEntregadoDocente').value;
-
-  filteredTalleresData = allTalleresData.filter(taller => {
-    // Filtrar por nombre de estudiante
-    const nombreMatch = taller.nombre.toLowerCase().includes(filtroNombre);
-
-    // Filtrar por grado
-    const gradoMatch = filtroGrado === '' || taller.grado === filtroGrado;
-
-    // Filtrar por materia
-    const materiaMatch = filtroMateria === '' || taller.nombre_materia === filtroMateria;
-
-    // Filtrar por periodo
-    const periodoMatch = filtroPeriodo === '' || taller.periodo == filtroPeriodo; // Usar == para comparar string con number
-
-    // Filtrar por entregado por estudiante
-    let entregadoEstudianteMatch = true;
-    if (filtroEntregadoEstudiante !== '') {
-      entregadoEstudianteMatch = (filtroEntregadoEstudiante === 'true' && !!taller.taller_entregado_estudiante) ||
-                                 (filtroEntregadoEstudiante === 'false' && !taller.taller_entregado_estudiante);
-    }
-
-    // Filtrar por entregado al docente
-    let entregadoDocenteMatch = true;
-    if (filtroEntregadoDocente !== '') {
-      entregadoDocenteMatch = (filtroEntregadoDocente === 'true' && !!taller.taller_entregado_docente) ||
-                              (filtroEntregadoDocente === 'false' && !taller.taller_entregado_docente);
-    }
-
-    return nombreMatch && gradoMatch && materiaMatch && periodoMatch && entregadoEstudianteMatch && entregadoDocenteMatch;
-  });
-
-  renderTable(filteredTalleresData);
-}
-
-function renderTable(dataToRender) {
-  const tabla = document.getElementById('tabla-talleres').getElementsByTagName('tbody')[0];
-  tabla.innerHTML = '';
-
-  // Ordenar los datos por grado y luego por nombre de estudiante
-  dataToRender.sort((a, b) => {
-    const gradoA = a.grado.toLowerCase();
-    const gradoB = b.grado.toLowerCase();
-
-    if (gradoA < gradoB) return -1;
-    if (gradoA > gradoB) return 1;
-
-    // Si los grados son iguales, ordenar por nombre
-    const nombreA = a.nombre.toLowerCase();
-    const nombreB = b.nombre.toLowerCase();
-
-    if (nombreA < nombreB) return -1;
-    if (nombreA > nombreB) return 1;
-    return 0;
-  });
-
-  dataToRender.forEach(taller => {
-    const fila = tabla.insertRow();
-    let nombreFormateado = taller.nombre
-    .toLowerCase() 
-    .split(' ') 
-    .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1)) 
-    .join(' '); 
-
-    fila.insertCell().innerText = nombreFormateado;
-    fila.insertCell().innerText = taller.grado;
-    fila.insertCell().innerText = taller.nombre_materia;
-    fila.insertCell().innerText = taller.periodo;
-
-    // Entregado por Estudiante
-    const celdaEntregaEstudiante = fila.insertCell();
-    const checkboxEstudiante = document.createElement('input');
-    checkboxEstudiante.type = 'checkbox';
-    checkboxEstudiante.checked = !!taller.taller_entregado_estudiante;
-    checkboxEstudiante.addEventListener('change', () => {
-      registrarEntregaEstudiante(taller.id_estudiante, taller.id_materia, taller.periodo, checkboxEstudiante.checked);
-    });
-    celdaEntregaEstudiante.appendChild(checkboxEstudiante);
-
-    // Fecha Entrega Estudiante
-    fila.insertCell().innerText = taller.fecha_entrega_estudiante ? new Date(taller.fecha_entrega_estudiante).toLocaleDateString() : '';
-
-    // Entregado al Docente
-    const celdaEntregaDocente = fila.insertCell();
-    const checkboxDocente = document.createElement('input');
-    checkboxDocente.type = 'checkbox';
-    checkboxDocente.checked = !!taller.taller_entregado_docente;
-    checkboxDocente.addEventListener('change', () => {
-      registrarEntregaDocente(taller.id_estudiante, taller.id_materia, taller.periodo, checkboxDocente.checked);
-    });
-    celdaEntregaDocente.appendChild(checkboxDocente);
-
-    // Fecha Entrega Docente
-    fila.insertCell().innerText = taller.fecha_entrega_docente ? new Date(taller.fecha_entrega_docente).toLocaleDateString() : '';
-
-    // Celda de Observaciones combinada
-    const celdaObservaciones = fila.insertCell();
-    celdaObservaciones.className = 'observaciones-cell'; // Añadir una clase para estilizar
-
-    const textoObservacion = document.createElement('span');
-    textoObservacion.innerText = taller.observaciones || 'Sin observaciones';
-    celdaObservaciones.appendChild(textoObservacion);
-
-    const botonObservaciones = document.createElement('button');
-    botonObservaciones.innerText = 'Editar';
-    botonObservaciones.className = 'btn btn-sm btn-secondary ms-2'; // Clases de Bootstrap
-    botonObservaciones.addEventListener('click', () => {
-      abrirModal(taller.observaciones, taller.id_estudiante, taller.id_materia, taller.periodo);
-    });
-    celdaObservaciones.appendChild(botonObservaciones);
-  });
-}
-
-function actualizarObservaciones(id_estudiante, id_materia, periodo, observaciones) {
-  showSpinner('guardarObservaciones', true);
-  fetch('/api/talleres/actualizar-observaciones', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ id_estudiante, id_materia, periodo, observaciones })
-  })
-    .then(response => response.text())
-    .then(msg => {
-      showToast('Éxito', msg);
-      cargarTalleres(); 
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('Error', 'Error al actualizar observaciones.', true);
-    })
-    .finally(() => {
-      showSpinner('guardarObservaciones', false);
-    });
-}
-
-function registrarEntregaEstudiante(id_estudiante, id_materia, periodo, entregado) {
-  // No hay un botón específico para spinner aquí, se podría añadir un spinner en la celda del checkbox
-  fetch('/api/talleres/entrega-estudiante', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ id_estudiante, id_materia, periodo, entregado })
-  })
-    .then(response => response.text())
-    .then(msg => {
-      showToast('Éxito', msg);
-      cargarTalleres();
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('Error', 'Error al registrar entrega de estudiante.', true);
-    });
-}
-
-function registrarEntregaDocente(id_estudiante, id_materia, periodo, entregado) {
-  // No hay un botón específico para spinner aquí
-  fetch('/api/talleres/entrega-docente', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ id_estudiante, id_materia, periodo, entregado })
-  })
-    .then(response => response.text())
-    .then(msg => {
-      showToast('Éxito', msg);
-      cargarTalleres();
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('Error', 'Error al registrar entrega a docente.', true);
-    });
+function showToast(header, message, isError = false) {
+  const toastElement = document.getElementById('liveToast');
+  const toastHeader = document.getElementById('toastHeader');
+  toastHeader.textContent = header;
+  toastHeader.className = isError ? 'me-auto text-danger' : 'me-auto text-success';
+  document.getElementById('toastBody').textContent = message;
+  bootstrap.Toast.getOrCreateInstance(toastElement).show();
 }

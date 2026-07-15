@@ -3,8 +3,26 @@ const express = require('express');
 const router = express.Router();
 const cargaController = require('../controllers/cargaController');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const path = require('path');
+const { createEditCodeGuard } = require('../middleware/requireEditCode');
 
-router.post('/carga-unificada', upload.single('file'), cargaController.cargaMasivaUnificada);
+const requireEditCode = createEditCodeGuard();
+const allowedExtensions = new Set(['.xlsx', '.csv']);
+const upload = multer({
+  dest: path.join(__dirname, '..', 'uploads'),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter: (req, file, callback) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.has(extension)) {
+      return callback(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'file'));
+    }
+    return callback(null, true);
+  },
+});
+
+router.post('/carga-unificada', requireEditCode, upload.single('file'), cargaController.cargaMasivaUnificada);
 
 module.exports = router;

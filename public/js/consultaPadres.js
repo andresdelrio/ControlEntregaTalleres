@@ -71,7 +71,7 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
 
     showSpinner('form-consulta-btn', true); // Mostrar spinner
     
-    fetch(`/api/padres/consultar-talleres?numero_identificacion=${numero_identificacion}`)
+    fetch(`api/padres/consultar-talleres?numero_identificacion=${encodeURIComponent(numero_identificacion)}`)
       .then(response => {
         if (!response.ok) {
           // Si la respuesta no es OK (ej. 404), intentar leer el mensaje de error del backend
