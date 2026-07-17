@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    document.getElementById('form-consulta').reset();
+    clearResults();
+  }
+});
+
 function showToast(header, message, isError = false) {
   const toastLiveExample = document.getElementById('liveToast');
   const toastHeader = document.getElementById('toastHeader');
@@ -44,6 +51,7 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
     e.preventDefault();
     const numero_identificacion_input = document.getElementById('numero_identificacion');
     const numero_identificacion = numero_identificacion_input.value.trim();
+    clearResults();
 
     // Limpiar validaciones previas
     numero_identificacion_input.classList.remove('is-invalid', 'is-valid');
@@ -81,6 +89,7 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
       })
       .then(data => {
         const resultadosDiv = document.getElementById('resultados');
+        resultadosDiv.classList.remove('d-none');
         const tablaBody = resultadosDiv.querySelector('tbody');
         const tablaHead = resultadosDiv.querySelector('thead');
         
@@ -88,7 +97,6 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
         tablaBody.innerHTML = '';
 
         if (data.length === 0) {
-          resultadosDiv.innerText = 'No se encontraron registros para este estudiante.';
           showToast('Información', 'No se encontraron registros para este estudiante.');
           return;
         }
@@ -107,17 +115,13 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
 
         data.forEach(taller => {
           const fila = document.createElement('tr');
-  
-          fila.innerHTML = `
-            <td>${taller.nombre_materia}</td>
-            <td>${taller.periodo}</td>
-            <td class="${taller.taller_entregado_estudiante ? 'status-si' : 'status-no'}">${taller.taller_entregado_estudiante ? 'Sí' : 'No'}</td>
-            <td>${taller.fecha_entrega_estudiante ? new Date(taller.fecha_entrega_estudiante).toLocaleDateString() : ''}</td>
-            <td class="${taller.taller_entregado_docente ? 'status-si' : 'status-no'}">${taller.taller_entregado_docente ? 'Sí' : 'No'}</td>
-            <td>${taller.fecha_entrega_docente ? new Date(taller.fecha_entrega_docente).toLocaleDateString() : ''}</td>
-            <td>${taller.observaciones || ''}</td>
-          `;
-  
+          appendCell(fila, taller.nombre_materia);
+          appendCell(fila, taller.periodo);
+          appendStatusCell(fila, taller.taller_entregado_estudiante);
+          appendCell(fila, formatDate(taller.fecha_entrega_estudiante));
+          appendStatusCell(fila, taller.taller_entregado_docente);
+          appendCell(fila, formatDate(taller.fecha_entrega_docente));
+          appendCell(fila, taller.observaciones || '');
           tablaBody.appendChild(fila);
           
         });
@@ -125,9 +129,34 @@ document.getElementById('form-consulta').addEventListener('submit', (e) => {
       })
       .catch(err => {
         console.error(err);
+        clearResults();
         showToast('Error', 'Error al consultar talleres: ' + err.message, true);
       })
       .finally(() => {
         showSpinner('form-consulta-btn', false); // Ocultar spinner
       });
   });
+
+function clearResults() {
+  const resultadosDiv = document.getElementById('resultados');
+  resultadosDiv.classList.add('d-none');
+  resultadosDiv.querySelector('tbody').replaceChildren();
+  document.getElementById('nombre-estudiante-grado')?.remove();
+}
+
+function appendCell(row, value) {
+  const cell = row.insertCell();
+  cell.textContent = value ?? '';
+}
+
+function appendStatusCell(row, delivered) {
+  const cell = row.insertCell();
+  cell.className = delivered ? 'status-si' : 'status-no';
+  cell.textContent = delivered ? 'Sí' : 'No';
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+}

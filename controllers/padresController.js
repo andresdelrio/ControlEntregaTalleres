@@ -3,6 +3,7 @@ const db = require('../config/db').promisePool;
 
 exports.consultarTalleres = async (req, res) => {
   const { numero_identificacion } = req.query;
+  res.set('Cache-Control', 'no-store');
 
   const query = `
     SELECT e.nombre, e.grado, m.nombre_materia, mr.periodo,

@@ -2,15 +2,21 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Consulta de Talleres</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta de entrega de talleres</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body class="container mt-5">
-  <h1 class="text-center mb-4">Consulta de entrega de talleres de Recuperación</h1>
+<body>
+  <main class="page-shell page-shell--narrow py-4 py-lg-5">
+  <header class="public-heading">
+    <p class="page-kicker">Consulta para familias</p>
+    <h1>Entrega de talleres de recuperación</h1>
+    <p class="page-intro">Ingrese el documento del estudiante para consultar únicamente su estado de entrega.</p>
+  </header>
   
   <div class="row justify-content-center">
     <div class="col-md-6">
@@ -26,7 +32,7 @@
     </div>
   </div>
 
-  <div id="resultados" class="mt-4 table-responsive">
+  <div id="resultados" class="mt-4 table-responsive d-none">
     <table class="table table-striped table-bordered">
       <thead>
         <tr>
@@ -44,6 +50,12 @@
       </tbody>
     </table>
   </div>
+
+  <footer class="public-footer">
+    <span>Institución Educativa San José</span>
+    <a href="acceso.html">Acceso institucional</a>
+  </footer>
+  </main>
 
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>

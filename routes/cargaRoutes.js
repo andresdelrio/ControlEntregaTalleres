@@ -4,9 +4,8 @@ const router = express.Router();
 const cargaController = require('../controllers/cargaController');
 const multer = require('multer');
 const path = require('path');
-const { createEditCodeGuard } = require('../middleware/requireEditCode');
+const { accessSession } = require('../middleware/accessSession');
 
-const requireEditCode = createEditCodeGuard();
 const allowedExtensions = new Set(['.xlsx', '.csv']);
 const upload = multer({
   dest: path.join(__dirname, '..', 'uploads'),
@@ -23,6 +22,7 @@ const upload = multer({
   },
 });
 
-router.post('/carga-unificada', requireEditCode, upload.single('file'), cargaController.cargaMasivaUnificada);
+router.use(accessSession.requireApiAccess);
+router.post('/carga-unificada', upload.single('file'), cargaController.cargaMasivaUnificada);
 
 module.exports = router;

@@ -10,11 +10,30 @@
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/estilos.css">
 </head>
-<body class="container mt-5">
-  <h1 class="text-center mb-5">Estudiantes con Talleres No Entregados</h1>
+<body>
+  <nav class="app-navbar" aria-label="Navegación principal">
+    <div class="page-shell app-navbar__inner">
+      <a class="app-brand" href="index.html">Talleres de recuperación</a>
+      <div class="app-nav-links">
+        <a href="index.html">Seguimiento</a>
+        <a href="cargaMasiva.html">Cargar datos</a>
+        <a href="consultaPadres.html">Consulta de familias</a>
+        <a class="active" href="reportes.html" aria-current="page">Reportes</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-shell py-4 py-lg-5">
+    <header class="page-heading">
+      <div>
+        <p class="page-kicker">Información institucional</p>
+        <h1>Estudiantes con talleres no entregados</h1>
+      </div>
+      <button id="cerrarSesion" class="btn btn-outline-secondary" type="button">Cerrar sesión</button>
+    </header>
 
   <!-- Tabla de estudiantes con talleres no entregados -->
-  <div class="table-responsive">
+  <div class="table-panel table-responsive">
     <table id="tabla-no-entregados" class="table table-striped table-bordered">
       <thead class="thead-dark">
         <tr>
@@ -29,6 +48,7 @@
       </tbody>
     </table>
   </div>
+  </main>
 
   <!-- Scripts de Bootstrap y jQuery -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>

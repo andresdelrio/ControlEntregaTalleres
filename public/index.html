@@ -30,18 +30,18 @@
         <h1>Seguimiento de entregas</h1>
         <p class="page-intro">Consulte el estado de cada taller y habilite la edición únicamente cuando necesite registrar cambios.</p>
       </div>
-      <button id="btnAccesoEdicion" class="btn btn-primary access-button" type="button">
-        Habilitar edición
+      <button id="cerrarSesion" class="btn btn-outline-secondary access-button" type="button">
+        Cerrar sesión
       </button>
     </header>
 
     <section class="access-card" aria-live="polite">
-      <span id="indicadorAcceso" class="access-dot" aria-hidden="true"></span>
+      <span class="access-dot access-dot--enabled" aria-hidden="true"></span>
       <div class="flex-grow-1">
-        <strong id="estadoAcceso">Modo consulta</strong>
-        <p id="detalleAcceso">Los controles están bloqueados para evitar cambios accidentales.</p>
+        <strong>Sesión institucional activa</strong>
+        <p>Puede consultar y registrar entregas. Cierre la sesión al terminar.</p>
       </div>
-      <span id="etiquetaAcceso" class="status-badge status-badge--locked">Bloqueado</span>
+      <span class="status-badge status-badge--enabled">Protegido</span>
     </section>
 
     <section class="metrics-grid" aria-label="Resumen de talleres">
@@ -153,32 +153,6 @@
       </div>
     </section>
   </main>
-
-  <div class="modal fade" id="modalAcceso" tabindex="-1" aria-labelledby="tituloModalAcceso" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <form id="formAccesoEdicion">
-          <div class="modal-header">
-            <div>
-              <p class="section-kicker mb-1">Acceso restringido</p>
-              <h2 class="modal-title fs-5" id="tituloModalAcceso">Habilitar edición</h2>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-          </div>
-          <div class="modal-body">
-            <label for="codigoEdicion" class="form-label">Código de edición</label>
-            <input type="password" id="codigoEdicion" class="form-control" minlength="6" autocomplete="current-password" required>
-            <p class="form-help">El código se conserva solo mientras esta pestaña permanezca abierta.</p>
-            <div id="errorAcceso" class="alert alert-danger d-none mt-3 mb-0" role="alert"></div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button id="confirmarAcceso" type="submit" class="btn btn-primary">Habilitar edición</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
 
   <div class="modal fade" id="modalObservaciones" tabindex="-1" aria-labelledby="tituloModalObservaciones" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

@@ -33,17 +33,12 @@
     </header>
 
     <section class="access-card mb-4" aria-labelledby="tituloAccesoCarga">
-      <span id="indicadorAccesoCarga" class="access-dot" aria-hidden="true"></span>
+      <span class="access-dot access-dot--enabled" aria-hidden="true"></span>
       <div class="flex-grow-1">
-        <h2 id="tituloAccesoCarga" class="access-card__title">Acceso para la persona encargada</h2>
-        <p id="detalleAccesoCarga">Ingrese el código de edición para habilitar la carga.</p>
+        <h2 id="tituloAccesoCarga" class="access-card__title">Sesión institucional activa</h2>
+        <p>La carga está protegida. Cierre la sesión cuando termine.</p>
       </div>
-      <form id="formAccesoCarga" class="access-inline-form">
-        <label for="codigoCarga" class="visually-hidden">Código de edición</label>
-        <input id="codigoCarga" type="password" class="form-control" minlength="6" placeholder="Código de edición" autocomplete="current-password" required>
-        <button id="validarCodigoCarga" type="submit" class="btn btn-primary">Habilitar</button>
-      </form>
-      <button id="bloquearCarga" type="button" class="btn btn-outline-secondary d-none">Bloquear</button>
+      <button id="cerrarSesion" type="button" class="btn btn-outline-secondary">Cerrar sesión</button>
     </section>
 
     <div id="mensajeCarga" class="alert d-none" role="alert"></div>
@@ -59,7 +54,7 @@
         </div>
 
         <form id="form-carga-unificada" enctype="multipart/form-data">
-          <fieldset id="camposCarga" disabled>
+          <fieldset id="camposCarga">
             <label class="upload-dropzone" for="archivo-unificado">
               <span class="upload-dropzone__title">Elegir archivo .xlsx o .csv</span>
               <span id="detalleArchivo" class="upload-dropzone__detail">Máximo 5 MB</span>

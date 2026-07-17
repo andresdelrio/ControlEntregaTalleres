@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof bootstrap === 'undefined') {
     console.warn('Bootstrap no está cargado. Los toasts no funcionarán.');
   }
+  document.getElementById('cerrarSesion').addEventListener('click', closeSession);
   cargarEstudiantesNoEntregados();
 });
 
@@ -31,7 +32,14 @@ function showToast(header, message, isError = false) {
 function cargarEstudiantesNoEntregados() {
   // No hay un botón específico para spinner aquí, pero se podría añadir un spinner a la tabla
   fetch('api/reportes/no-entregados')
-    .then(response => response.json())
+    .then(response => {
+      if (response.status === 401) {
+        window.location.replace('acceso.html?destino=reportes.html');
+        throw new Error('Acceso institucional requerido.');
+      }
+      if (!response.ok) throw new Error('No fue posible cargar el reporte.');
+      return response.json();
+    })
     .then(data => {
       const tabla = document.getElementById('tabla-no-entregados').getElementsByTagName('tbody')[0];
       tabla.innerHTML = '';
@@ -69,4 +77,15 @@ function cargarEstudiantesNoEntregados() {
       console.error(err);
       showToast('Error', 'Error al cargar el reporte.', true);
     });
+}
+
+async function closeSession() {
+  const button = document.getElementById('cerrarSesion');
+  button.disabled = true;
+  button.textContent = 'Cerrando…';
+  try {
+    await fetch('api/acceso/cerrar', { method: 'POST' });
+  } finally {
+    window.location.replace('consultaPadres.html');
+  }
 }

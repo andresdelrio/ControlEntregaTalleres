@@ -1,30 +1,21 @@
-const EDIT_CODE_STORAGE_KEY = 'talleres_edit_code';
 const FILTERS_STORAGE_KEY = 'talleres_filters';
 
 const state = {
   allTalleres: [],
   filteredTalleres: [],
-  editCode: sessionStorage.getItem(EDIT_CODE_STORAGE_KEY) || '',
-  editEnabled: false,
+  editEnabled: true,
   currentObservation: null,
   page: 1,
   pageSize: 50,
 };
 
-let accessModal;
 let observationsModal;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  accessModal = new bootstrap.Modal(document.getElementById('modalAcceso'));
   observationsModal = new bootstrap.Modal(document.getElementById('modalObservaciones'));
   bindEvents();
   restoreFilters();
-  setEditEnabled(false);
-
-  await Promise.all([
-    loadTalleres(),
-    verifyStoredCode(),
-  ]);
+  await loadTalleres();
 });
 
 function bindEvents() {
@@ -51,24 +42,13 @@ function bindEvents() {
   });
   document.getElementById('paginaAnterior').addEventListener('click', () => changePage(-1));
   document.getElementById('paginaSiguiente').addEventListener('click', () => changePage(1));
-  document.getElementById('btnAccesoEdicion').addEventListener('click', () => {
-    if (state.editEnabled) {
-      lockEditing();
-      showToast('Edición bloqueada', 'Los datos continúan disponibles en modo consulta.');
-      return;
-    }
-    openAccessModal();
-  });
-  document.getElementById('formAccesoEdicion').addEventListener('submit', unlockEditing);
+  document.getElementById('cerrarSesion').addEventListener('click', closeSession);
   document.getElementById('formObservaciones').addEventListener('submit', saveObservation);
   document.getElementById('textoObservaciones').addEventListener('input', updateObservationCounter);
 }
 
-async function apiRequest(url, options = {}, requireCode = false) {
+async function apiRequest(url, options = {}) {
   const headers = new Headers(options.headers || {});
-  if (requireCode) {
-    headers.set('X-Edit-Code', state.editCode);
-  }
 
   const response = await fetch(url, { ...options, headers });
   const contentType = response.headers.get('content-type') || '';
@@ -77,6 +57,9 @@ async function apiRequest(url, options = {}, requireCode = false) {
     : { message: await response.text() };
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.location.replace('acceso.html?destino=index.html');
+    }
     const error = new Error(payload.message || 'No fue posible completar la operación.');
     error.status = response.status;
     error.code = payload.code;
@@ -316,7 +299,7 @@ async function saveDeliveryStatus(taller, type, checkbox) {
         periodo: taller.periodo,
         entregado: checkbox.checked,
       }),
-    }, true);
+    });
     Object.assign(taller, payload.taller);
     updateMetrics();
     applyFiltersAndRenderTable({ resetPage: false });
@@ -352,7 +335,7 @@ async function saveObservation(event) {
         periodo: taller.periodo,
         observaciones: document.getElementById('textoObservaciones').value,
       }),
-    }, true);
+    });
     Object.assign(taller, payload.taller);
     observationsModal.hide();
     applyFiltersAndRenderTable({ resetPage: false });
@@ -368,77 +351,18 @@ function updateObservationCounter() {
   document.getElementById('contadorObservacion').textContent = document.getElementById('textoObservaciones').value.length;
 }
 
-async function verifyStoredCode() {
-  if (!state.editCode) return;
-  try {
-    await apiRequest('api/talleres/verificar-codigo', { method: 'POST' }, true);
-    setEditEnabled(true);
-  } catch (error) {
-    lockEditing();
-  }
-}
-
-function openAccessModal() {
-  document.getElementById('codigoEdicion').value = '';
-  document.getElementById('errorAcceso').classList.add('d-none');
-  accessModal.show();
-  document.getElementById('modalAcceso').addEventListener('shown.bs.modal', () => {
-    document.getElementById('codigoEdicion').focus();
-  }, { once: true });
-}
-
-async function unlockEditing(event) {
-  event.preventDefault();
-  const errorElement = document.getElementById('errorAcceso');
-  const button = document.getElementById('confirmarAcceso');
-  state.editCode = document.getElementById('codigoEdicion').value;
-  errorElement.classList.add('d-none');
-  setButtonLoading(button, true, 'Comprobando…');
-
-  try {
-    await apiRequest('api/talleres/verificar-codigo', { method: 'POST' }, true);
-    sessionStorage.setItem(EDIT_CODE_STORAGE_KEY, state.editCode);
-    setEditEnabled(true);
-    accessModal.hide();
-    showToast('Edición habilitada', 'Ya puede actualizar entregas y observaciones.');
-  } catch (error) {
-    state.editCode = '';
-    sessionStorage.removeItem(EDIT_CODE_STORAGE_KEY);
-    errorElement.textContent = error.message;
-    errorElement.classList.remove('d-none');
-  } finally {
-    setButtonLoading(button, false);
-  }
-}
-
-function setEditEnabled(enabled) {
-  state.editEnabled = enabled;
-  const accessButton = document.getElementById('btnAccesoEdicion');
-  const badge = document.getElementById('etiquetaAcceso');
-  document.getElementById('estadoAcceso').textContent = enabled ? 'Edición habilitada' : 'Modo consulta';
-  document.getElementById('detalleAcceso').textContent = enabled
-    ? 'Puede registrar entregas y actualizar observaciones en esta pestaña.'
-    : 'Los controles están bloqueados para evitar cambios accidentales.';
-  accessButton.textContent = enabled ? 'Bloquear edición' : 'Habilitar edición';
-  accessButton.classList.toggle('btn-primary', !enabled);
-  accessButton.classList.toggle('btn-outline-secondary', enabled);
-  badge.textContent = enabled ? 'Habilitado' : 'Bloqueado';
-  badge.className = enabled ? 'status-badge status-badge--enabled' : 'status-badge status-badge--locked';
-  document.getElementById('indicadorAcceso').classList.toggle('access-dot--enabled', enabled);
-  if (state.allTalleres.length > 0) renderTable();
-}
-
-function lockEditing() {
-  state.editCode = '';
-  sessionStorage.removeItem(EDIT_CODE_STORAGE_KEY);
-  setEditEnabled(false);
-}
-
 function handleProtectedError(error) {
-  if ([401, 429, 503].includes(error.status)) {
-    lockEditing();
-  }
   showToast('No se guardó el cambio', error.message, true);
+}
+
+async function closeSession() {
+  const button = document.getElementById('cerrarSesion');
+  setButtonLoading(button, true, 'Cerrando…');
+  try {
+    await fetch('api/acceso/cerrar', { method: 'POST' });
+  } finally {
+    window.location.replace('consultaPadres.html');
+  }
 }
 
 function updateMetrics() {

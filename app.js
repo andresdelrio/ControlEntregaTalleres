@@ -24,11 +24,23 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
-// Servir archivos estáticos tanto en desarrollo como bajo la URI asignada por cPanel.
 const publicDirectory = path.join(__dirname, 'public');
-app.use(express.static(publicDirectory));
-if (APP_BASE_PATH) {
-  app.use(APP_BASE_PATH, express.static(publicDirectory));
+const { accessSession } = require('./middleware/accessSession');
+
+function createFrontendRouter() {
+  const router = express.Router();
+  const privateFiles = ['index.html', 'cargaMasiva.html', 'reportes.html', 'plantilla_carga_talleres.csv'];
+
+  // La portada pública es exclusivamente la consulta para las familias.
+  router.get('/', (req, res) => res.sendFile(path.join(publicDirectory, 'consultaPadres.html')));
+  privateFiles.forEach((fileName) => {
+    router.get(`/${fileName}`, accessSession.requirePageAccess, (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      return res.sendFile(path.join(publicDirectory, fileName));
+    });
+  });
+  router.use(express.static(publicDirectory, { index: false }));
+  return router;
 }
 
 // Importar rutas
@@ -37,9 +49,11 @@ const estudiantesRoutes = require('./routes/estudiantesRoutes');
 const talleresRoutes = require('./routes/talleresRoutes');
 const padresRoutes = require('./routes/padresRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
+const accessRoutes = require('./routes/accessRoutes');
 
 // Usar las mismas rutas en la raíz local y bajo el prefijo público de cPanel.
 const apiRouter = express.Router();
+apiRouter.use('/acceso', accessRoutes);
 apiRouter.use('/carga', cargaRoutes);
 apiRouter.use('/estudiantes', estudiantesRoutes);
 apiRouter.use('/talleres', talleresRoutes);
@@ -48,6 +62,12 @@ apiRouter.use('/reportes', reportesRoutes);
 app.use('/api', apiRouter);
 if (APP_BASE_PATH) {
   app.use(`${APP_BASE_PATH}/api`, apiRouter);
+}
+
+// Servir las páginas después de las APIs para que ningún archivo estático las omita.
+app.use('/', createFrontendRouter());
+if (APP_BASE_PATH) {
+  app.use(APP_BASE_PATH, createFrontendRouter());
 }
 
 app.use((err, req, res, next) => {
