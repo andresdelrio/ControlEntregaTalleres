@@ -25,6 +25,7 @@ app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 const publicDirectory = path.join(__dirname, 'public');
+const privateDirectory = path.join(__dirname, 'private');
 const { accessSession } = require('./middleware/accessSession');
 
 function createFrontendRouter() {
@@ -36,7 +37,7 @@ function createFrontendRouter() {
   privateFiles.forEach((fileName) => {
     router.get(`/${fileName}`, accessSession.requirePageAccess, (req, res) => {
       res.set('Cache-Control', 'no-store');
-      return res.sendFile(path.join(publicDirectory, fileName));
+      return res.sendFile(path.join(privateDirectory, fileName));
     });
   });
   router.use(express.static(publicDirectory, { index: false }));

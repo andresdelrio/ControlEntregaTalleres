@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const app = require('../app');
 
 function cookieFrom(response) {
@@ -8,6 +10,12 @@ function cookieFrom(response) {
 
 test('solo la consulta para familias es pública y el área institucional requiere sesión', async (t) => {
   process.env.EDIT_ACCESS_CODE = 'codigo-integracion';
+  const protectedFiles = ['index.html', 'cargaMasiva.html', 'reportes.html', 'plantilla_carga_talleres.csv'];
+  for (const protectedFile of protectedFiles) {
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'public', protectedFile)), false);
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'private', protectedFile)), true);
+  }
+
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   t.after(() => new Promise((resolve) => server.close(resolve)));
@@ -25,7 +33,7 @@ test('solo la consulta para familias es pública y el área institucional requie
   assert.equal(mountedPublicPage.status, 200);
   assert.match(await mountedPublicPage.text(), /Consulta para familias/);
 
-  for (const privatePage of ['index.html', 'cargaMasiva.html', 'reportes.html', 'plantilla_carga_talleres.csv']) {
+  for (const privatePage of protectedFiles) {
     const response = await fetch(`${baseUrl}/${privatePage}`, { redirect: 'manual' });
     assert.equal(response.status, 302, `${privatePage} debe redirigir al acceso`);
     assert.match(response.headers.get('location'), /acceso\.html/);

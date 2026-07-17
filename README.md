@@ -40,11 +40,13 @@ La URL pública de esta instalación es `https://sanjosebetulia.edu.co/seguimien
 
 Este cambio de privacidad no requiere migraciones ni modificaciones en MySQL. No ejecute scripts de `sql/` como parte de este despliegue.
 
+Las vistas institucionales y la plantilla se almacenan en `private/`, fuera de `public/`. Esto evita que Apache o LiteSpeed las entregue directamente sin pasar por la validación de la sesión de Express.
+
 Si `EDIT_ACCESS_CODE` no existe o tiene menos de 6 caracteres, la consulta para familias continúa disponible, pero el área institucional responde con un error controlado y no muestra datos.
 
 ## Carga de información
 
-Use `public/plantilla_carga_talleres.csv` como referencia. Se admiten archivos `.xlsx` o `.csv` de hasta 5 MB con las columnas `Estudiante`, `Documento`, `Grupo`, `Periodo` y `Materia`.
+La plantilla se descarga desde el área institucional y su archivo fuente está en `private/plantilla_carga_talleres.csv`. Se admiten archivos `.xlsx` o `.csv` de hasta 5 MB con las columnas `Estudiante`, `Documento`, `Grupo`, `Periodo` y `Materia`.
 
 La importación valida todas las filas antes de guardar y utiliza una transacción: si encuentra datos inválidos, no aplica cambios parciales.
 
